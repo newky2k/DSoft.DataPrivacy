@@ -52,14 +52,13 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Builders
             {
                 var entityType = builder.Metadata.ClrType.GetTypeInfo();
 
-                
                 var idProp = props.First();
 
-                var privateRecord = entityType.GetCustomAttribute<PrivateRecordAttribute>();
+                var privateRecordAtrribute = entityType.GetCustomAttribute<PrivateRecordAttribute>();
 
-                if (privateRecord != null)
+                if (privateRecordAtrribute == null)
                 {
-
+                    //not attached so add a new attribute
                 }
             }
 
