@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DSoft.DataPrivacy/DSoft.DataPrivacy.csproj" />
+    <Project Path="src/DSoft.DataPrivacy.EntityFrameworkCore/DSoft.DataPrivacy.EntityFrameworkCore.csproj" />
+    <Project Path="src/DSoft.DataPrivacy.Redaction/DSoft.DataPrivacy.Redaction.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/DataPrivacySample/DataPrivacySample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DSoft.DataPrivacy.Tests/DSoft.DataPrivacy.Tests.csproj" />
+  </Folder>
+</Solution>
