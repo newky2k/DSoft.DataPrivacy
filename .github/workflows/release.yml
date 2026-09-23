@@ -1,5 +1,6 @@
 # Release: on every push to main, builds Release, runs the tests and pushes the
-# DSoft.*.nupkg packages to nuget.org as a prerelease.
+# DSoft.*.nupkg packages to nuget.org as a prerelease, then tags the commit and
+# creates a GitHub release with the packages attached.
 # Signs in to nuget.org with Trusted Publishing (OIDC), so no API key is stored.
 name: Release
 
@@ -24,7 +25,7 @@ jobs:
     runs-on: windows-latest
     environment: nuget
     permissions:
-      contents: read
+      contents: write # GitHub release and tag
       id-token: write # Trusted Publishing
     steps:
       - uses: actions/checkout@v7
@@ -78,3 +79,14 @@ jobs:
           for package in artifacts/*.nupkg; do
             dotnet nuget push "$package" --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
           done
+
+      - name: GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "v${{ steps.version.outputs.version }}-prerelease" artifacts/*.nupkg
+          --target "${{ github.sha }}"
+          --title "${{ steps.version.outputs.version }}-prerelease"
+          --generate-notes
+          --prerelease

@@ -72,7 +72,7 @@ net10.0, EF Core 10                         net10.0, Microsoft.Extensions.Compli
 GitHub Actions (`.github/workflows/`):
 
 - `ci.yml`: runs on pull requests to `main`. Builds Release and runs the tests. Publishes nothing.
-- `release.yml`: runs on every push to `main` (changes only to Markdown or workflow files are skipped; run it by hand to test a workflow change). Builds Release as `1.0.yyMM.<run number>-prerelease`, runs the tests, uploads the packages as the `drop` artifact and pushes them to nuget.org with Trusted Publishing (OIDC, `NUGET_USER` secret, `nuget` environment).
+- `release.yml`: runs on every push to `main` (changes only to Markdown or workflow files are skipped; run it by hand to test a workflow change). Builds Release as `1.0.yyMM.<run number>-prerelease`, runs the tests, uploads the packages as the `drop` artifact and pushes them to nuget.org with Trusted Publishing (OIDC, `NUGET_USER` secret, `nuget` environment), then tags the commit `v<version>` and creates a GitHub prerelease with the packages attached.
 
 Azure Pipelines (kept alongside):
 
