@@ -1,0 +1,81 @@
+# Release: on every push to main, builds Release, runs the tests and pushes the
+# DSoft.*.nupkg packages to nuget.org as a prerelease.
+# Signs in to nuget.org with Trusted Publishing (OIDC), so no API key is stored.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'azure-pipelines-*.yml'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          version="1.0.$(date -u +%y%m).${{ github.run_number }}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version-prerelease"
+
+      - name: Restore
+        run: dotnet restore GDPRCore.slnx
+
+      - name: Build
+        run: >
+          dotnet build GDPRCore.slnx --configuration Release --no-restore
+          /p:Version=${{ steps.version.outputs.version }}-prerelease
+          /p:AssemblyVersion=${{ steps.version.outputs.version }}
+          /p:FileVersion=${{ steps.version.outputs.version }}
+
+      - name: Test
+        run: dotnet test GDPRCore.slnx --configuration Release --no-build
+
+      - name: Collect packages
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          find src -path '*/bin/Release/*' -name 'DSoft.*.nupkg' -exec cp {} artifacts/ \;
+          ls artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drop
+          path: artifacts/*.nupkg
+
+      - name: NuGet login
+        id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to nuget.org
+        shell: bash
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

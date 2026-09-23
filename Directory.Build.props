@@ -21,7 +21,7 @@
     <PackageTags>privacy;data-privacy;gdpr;uk-gdpr;popia;data-protection;personal-data;dsar;erasure;retention;entity-framework-core;efcore</PackageTags>
   </PropertyGroup>
 
-  <!-- The packages. The version is not set here: azure-pipelines-release.yml passes /p:Version. -->
+  <!-- The packages. The version is not set here: the release pipeline passes /p:Version. -->
   <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('src'))">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -49,7 +49,7 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(TF_BUILD)' == 'true'">
+  <PropertyGroup Condition="'$(TF_BUILD)' == 'true' Or '$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
