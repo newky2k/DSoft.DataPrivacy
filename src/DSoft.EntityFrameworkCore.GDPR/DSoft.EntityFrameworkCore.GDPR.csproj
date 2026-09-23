@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <Description>GDPR tooling for Entity Framework Core: classify personal data with attributes or the fluent API, then inventory it, export it for a subject access request, erase or anonymise it, apply retention policies and record changes to it.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DSoft.EntityFrameworkCore.GDPR.Abstractions\DSoft.EntityFrameworkCore.GDPR.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DSoft.EntityFrameworkCore.GDPR.Tests" />
+  </ItemGroup>
+
+</Project>

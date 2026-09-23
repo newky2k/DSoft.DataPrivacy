@@ -1,0 +1,74 @@
+using System;
+using DSoft.EntityFrameworkCore.GDPR;
+using DSoft.EntityFrameworkCore.GDPR.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Microsoft.EntityFrameworkCore;
+
+/// <summary>Fluent configuration of how an entity holds personal data. Equivalent to the class-level attributes.</summary>
+public static class GdprEntityTypeBuilderExtensions
+{
+    /// <summary>Marks the entity as a data subject: the person other personal data resolves to. Same as <see cref="DataSubjectAttribute"/>.</summary>
+    public static EntityTypeBuilder IsDataSubject(this EntityTypeBuilder builder)
+        => builder.HasAnnotation(GdprAnnotationNames.IsDataSubject, true);
+
+    /// <inheritdoc cref="IsDataSubject(EntityTypeBuilder)"/>
+    public static EntityTypeBuilder<TEntity> IsDataSubject<TEntity>(this EntityTypeBuilder<TEntity> builder)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)IsDataSubject((EntityTypeBuilder)builder);
+
+    /// <summary>Sets the data class the entity's records belong to, for retention and the record of processing.</summary>
+    public static EntityTypeBuilder HasDataClass(this EntityTypeBuilder builder, string dataClass)
+    {
+        if (string.IsNullOrWhiteSpace(dataClass))
+            throw new ArgumentException("A data class needs a name.", nameof(dataClass));
+
+        return builder.HasAnnotation(GdprAnnotationNames.DataClass, dataClass);
+    }
+
+    /// <inheritdoc cref="HasDataClass(EntityTypeBuilder, string)"/>
+    public static EntityTypeBuilder<TEntity> HasDataClass<TEntity>(this EntityTypeBuilder<TEntity> builder, string dataClass)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)HasDataClass((EntityTypeBuilder)builder, dataClass);
+
+    /// <summary>Sets whether the entity's records are deleted or anonymised when the person they belong to is erased.</summary>
+    public static EntityTypeBuilder OnErasure(this EntityTypeBuilder builder, ErasureAction action)
+    {
+        if (action == ErasureAction.Retain)
+            throw new ArgumentException("Use RetainOnErasure, which records the Article 17(3) exemption.", nameof(action));
+
+        return builder.HasAnnotation(GdprAnnotationNames.Erasure, (int)action);
+    }
+
+    /// <inheritdoc cref="OnErasure(EntityTypeBuilder, ErasureAction)"/>
+    public static EntityTypeBuilder<TEntity> OnErasure<TEntity>(this EntityTypeBuilder<TEntity> builder, ErasureAction action)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)OnErasure((EntityTypeBuilder)builder, action);
+
+    /// <summary>Keeps the entity's records when the person is erased, under an Article 17(3) exemption. Same as <see cref="RetainOnErasureAttribute"/>.</summary>
+    public static EntityTypeBuilder RetainOnErasure(this EntityTypeBuilder builder, ErasureExemption exemption, string? reason = null)
+    {
+        if (exemption == ErasureExemption.None)
+            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+
+        builder.HasAnnotation(GdprAnnotationNames.Erasure, (int)ErasureAction.Retain);
+        builder.HasAnnotation(GdprAnnotationNames.Exemption, (int)exemption);
+        if (reason != null)
+            builder.HasAnnotation(GdprAnnotationNames.ExemptionReason, reason);
+        return builder;
+    }
+
+    /// <inheritdoc cref="RetainOnErasure(EntityTypeBuilder, ErasureExemption, string?)"/>
+    public static EntityTypeBuilder<TEntity> RetainOnErasure<TEntity>(this EntityTypeBuilder<TEntity> builder, ErasureExemption exemption, string? reason = null)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)RetainOnErasure((EntityTypeBuilder)builder, exemption, reason);
+
+    /// <summary>Describes what the entity's records hold, for inventories and the record of processing.</summary>
+    public static EntityTypeBuilder HasPersonalDataDescription(this EntityTypeBuilder builder, string description)
+        => builder.HasAnnotation(GdprAnnotationNames.Description, description);
+
+    /// <inheritdoc cref="HasPersonalDataDescription(EntityTypeBuilder, string)"/>
+    public static EntityTypeBuilder<TEntity> HasPersonalDataDescription<TEntity>(this EntityTypeBuilder<TEntity> builder, string description)
+        where TEntity : class
+        => (EntityTypeBuilder<TEntity>)HasPersonalDataDescription((EntityTypeBuilder)builder, description);
+}
