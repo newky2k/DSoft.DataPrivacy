@@ -66,8 +66,17 @@ public sealed class DataPrivacyOptionsBuilder
         return this;
     }
 
-    /// <summary>Sets the data protection law in force by its identifier, such as <c>gdpr</c> or <c>popia</c>, for example from configuration.</summary>
+    /// <summary>
+    /// Sets the data protection law in force by its identifier, such as <c>gdpr</c> or <c>popia</c>, for example from
+    /// configuration. Several identifiers, such as <c>gdpr,popia</c>, apply all of those laws at once.
+    /// </summary>
     public DataPrivacyOptionsBuilder UseRegime(string regimeId) => UseRegime(PrivacyRegimes.Get(regimeId));
+
+    /// <summary>
+    /// Applies several laws at once, such as POPIA for a South African organisation plus the GDPR for its UK and EU
+    /// customers. They are combined so every decision meets the stricter of them; see <see cref="CombinedPrivacyRegime"/>.
+    /// </summary>
+    public DataPrivacyOptionsBuilder UseRegimes(params PrivacyRegime[] regimes) => UseRegime(PrivacyRegimes.Combine(regimes));
 
     /// <summary>
     /// Sets the secret key for <see cref="AnonymisationMethod.Hash"/>. Use at least 32 random bytes, keep it out of

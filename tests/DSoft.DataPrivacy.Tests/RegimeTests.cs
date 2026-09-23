@@ -176,4 +176,92 @@ public sealed class RegimeTests
         Assert.True(note.SpecialCategory);
         Assert.Equal("Retain (HealthOrSocialCare, Art 17(3)(c))", note.OnErasure);
     }
+
+    private static readonly PrivacyRegime Both = PrivacyRegimes.Combine(PrivacyRegimes.Gdpr, PrivacyRegimes.Popia);
+
+    [Fact]
+    public void Combining_one_regime_returns_it_and_duplicates_are_removed()
+    {
+        Assert.Same(Gdpr, PrivacyRegimes.Combine(Gdpr));
+        Assert.Same(Gdpr, PrivacyRegimes.Combine(Gdpr, Gdpr));
+
+        var nested = Assert.IsType<CombinedPrivacyRegime>(PrivacyRegimes.Combine(Both, Popia));
+        Assert.Equal(new[] { Gdpr, Popia }, nested.Regimes);
+        Assert.Throws<ArgumentException>(() => PrivacyRegimes.Combine());
+    }
+
+    [Fact]
+    public void Combinations_are_found_from_configuration()
+    {
+        var combined = Assert.IsType<CombinedPrivacyRegime>(PrivacyRegimes.Get("gdpr, popia"));
+
+        Assert.Equal("gdpr+popia", combined.Id);
+        Assert.Equal("GDPR + POPIA", combined.Name);
+        Assert.IsType<CombinedPrivacyRegime>(PrivacyRegimes.Find("POPIA+GDPR"));
+        Assert.Null(PrivacyRegimes.Find("gdpr,ccpa"));
+    }
+
+    [Fact]
+    public void A_combination_only_recognises_what_every_law_recognises()
+    {
+        Assert.Equal("GDPR Art 17(3)(c); POPIA s14(1)(a)", Both.Cite(RetentionGround.HealthOrSocialCare));
+        Assert.False(Both.Recognises(RetentionGround.Consent));          // POPIA only
+        Assert.False(Both.Recognises(LawfulBasis.VitalInterests));       // GDPR only
+        Assert.True(Both.Recognises(LawfulBasis.LegitimateInterests));
+        Assert.Equal("controller / responsible party", Both.ControllerTerm);
+    }
+
+    [Fact]
+    public void A_combination_treats_data_as_special_when_any_law_does()
+    {
+        Assert.True(Both.IsSpecial(PersonalDataCategory.CriminalOffence));
+        Assert.True(Both.IsSpecial(PersonalDataCategory.Health));
+        Assert.False(Both.IsSpecial(PersonalDataCategory.Contact));
+    }
+
+    [Fact]
+    public void A_combination_gives_every_right_any_law_gives()
+    {
+        Assert.Contains(DataSubjectRequestType.Portability, Both.RequestTypes);
+        Assert.Equal("GDPR Art 20", Both.Cite(DataSubjectRequestType.Portability));
+        Assert.Equal("GDPR Art 17; POPIA s24", Both.Cite(DataSubjectRequestType.Erasure));
+    }
+
+    [Fact]
+    public void A_combination_uses_the_earliest_deadline_and_shortest_breach_window()
+    {
+        var received = new DateTime(2026, 1, 5);
+
+        // POPIA (PAIA) 30 days is Wednesday 4 February; the GDPR month is Thursday 5 February.
+        Assert.Equal(new DateTime(2026, 2, 4), Both.RequestDeadline(DataSubjectRequestType.Access, received));
+
+        // POPIA sets no period for erasure, so the GDPR month applies.
+        Assert.Equal(new DateTime(2026, 2, 5), Both.RequestDeadline(DataSubjectRequestType.Erasure, received));
+
+        // Extended: POPIA 60 days is Friday 6 March; the GDPR three months is Monday 6 April.
+        Assert.Equal(new DateTime(2026, 3, 6), Both.RequestDeadline(DataSubjectRequestType.Access, received, extended: true));
+
+        Assert.Equal(TimeSpan.FromHours(72), Both.BreachNotificationWindow);
+        Assert.Contains("POPIA:", Both.BreachNotificationRule);
+    }
+
+    [Fact]
+    public async Task Erasure_and_validation_apply_every_law()
+    {
+        using var database = new ShopDatabase();
+        int id;
+        using (var seed = database.CreateContext())
+            id = Seed.FullCustomer(seed).Id;
+
+        using (var context = database.CreateContext(privacy => privacy.UseRegimes(PrivacyRegimes.Gdpr, PrivacyRegimes.Popia)))
+        {
+            var result = await context.PersonalData().EraseAsync<Customer>(id, new DSoft.DataPrivacy.EntityFrameworkCore.Erasure.ErasureOptions { DryRun = true });
+            Assert.Equal("GDPR + POPIA", result.Regime);
+            Assert.Equal("GDPR Art 17(3)(c); POPIA s14(1)(a)", result.Entries.Single(e => e.Entity == "ClinicalNote").Citation);
+        }
+
+        var consentPolicy = new ErasurePolicy().RetainCategory(PersonalDataCategory.Contact, RetentionGround.Consent, "Kept while the person consents");
+        using (var context = database.CreateContext(privacy => privacy.UseRegime("gdpr,popia").UseErasurePolicy(consentPolicy)))
+            Assert.Contains(context.PersonalData().Validate(), i => i.Severity == PersonalDataIssueSeverity.Error && i.Message.Contains("GDPR + POPIA"));
+    }
 }
