@@ -239,7 +239,9 @@ Classification is stored as model annotations. The package registers design-time
 ```bash
 dotnet build GDPRCore.slnx
 dotnet test GDPRCore.slnx
-dotnet pack GDPRCore.slnx -c Release
+dotnet build GDPRCore.slnx -c Release   # also produces the packages
 ```
+
+The assemblies are strong-named. Package versions are set by the release pipeline (`azure-pipelines-release.yml`).
 
 MIT licensed.

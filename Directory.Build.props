@@ -1,32 +1,61 @@
 <Project>
   <PropertyGroup>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>Latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <NoWarn>$(NoWarn);1701;1702;CS8002</NoWarn>
+    <Configurations>Debug;Release</Configurations>
 
-    <VersionPrefix>1.0.0</VersionPrefix>
-    <VersionSuffix>preview.1</VersionSuffix>
-    <Authors>Dave Humphreys</Authors>
-    <Copyright>Copyright (c) Dave Humphreys</Copyright>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/newky2k/GDPRCore</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/newky2k/GDPRCore.git</RepositoryUrl>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>gdpr;uk-gdpr;privacy;data-protection;personal-data;dsar;erasure;retention;entity-framework-core;efcore</PackageTags>
+    <RepositoryUrl>https://github.com/newky2k/GDPRCore</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/newky2k/GDPRCore</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2026 DSoft</Copyright>
+    <Authors>newky2k</Authors>
+    <Owners>newky2k</Owners>
+    <PackageIcon>DSIcon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>gdpr;uk-gdpr;privacy;data-protection;personal-data;dsar;erasure;retention;entity-framework-core;efcore</PackageTags>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(IsPackable)' != 'false' And $(MSBuildProjectDirectory.Contains('src'))">
+  <!-- The packages. The version is not set here: azure-pipelines-release.yml passes /p:Version. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('src'))">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('src'))">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)DSIcon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)'=='Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)'=='Release'">
+    <!-- sourcelink: Declare that the Repository URL can be published to NuSpec -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <!-- sourcelink: Embed source files that are not tracked by the source control manager to the PDB -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- sourcelink: Include PDB in the built .nupkg -->
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" '$(Configuration)'=='Release'">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(TF_BUILD)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Strong naming: each signed project keeps its own copy of DSoft.snk. -->
+  <PropertyGroup Condition="Exists('$(MSBuildProjectDirectory)\DSoft.snk')">
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildProjectDirectory)\DSoft.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
 </Project>
