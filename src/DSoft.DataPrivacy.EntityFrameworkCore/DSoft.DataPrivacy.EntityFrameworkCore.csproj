@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <Description>Data privacy tooling for Entity Framework Core, for the GDPR, POPIA and similar laws: classify personal data with attributes or the fluent API, then inventory it, export it for a subject access request, erase or anonymise it, apply retention policies and record changes to it.</Description>
-    <PackageReleaseNotes>v1.0 - Conventions, fluent API, subject access export, erasure, retention and change log. Supports .NET 8 and .NET 10.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0 - Conventions, fluent API, subject access export, erasure, retention and change log. Targets .NET 10.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

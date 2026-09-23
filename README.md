@@ -24,8 +24,8 @@ The library is a tool, not legal advice. Its citations show which provision a de
 | Package | Targets | Use it for |
 |---|---|---|
 | `DSoft.DataPrivacy` | netstandard2.0 | Attributes, categories, regimes and pure rules. No EF dependency, so domain and entity libraries can classify their own types. |
-| `DSoft.DataPrivacy.EntityFrameworkCore` | net8.0, net10.0 | The EF Core conventions, fluent API, export, erasure, retention and change log. |
-| `DSoft.DataPrivacy.Redaction` | net8.0, net10.0 | Log redaction through `Microsoft.Extensions.Compliance`. |
+| `DSoft.DataPrivacy.EntityFrameworkCore` | net10.0 (EF Core 10) | The EF Core conventions, fluent API, export, erasure, retention and change log. |
+| `DSoft.DataPrivacy.Redaction` | net10.0 | Log redaction through `Microsoft.Extensions.Compliance`. |
 
 ## Quick start
 

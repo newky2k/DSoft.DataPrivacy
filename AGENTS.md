@@ -11,7 +11,7 @@ dotnet build GDPRCore.slnx
 # Build in Release (also produces the NuGet packages, under src/*/bin/Release)
 dotnet build GDPRCore.slnx -c Release
 
-# Run all tests (net8.0 and net10.0)
+# Run all tests
 dotnet test GDPRCore.slnx
 
 # Run one test class
@@ -21,7 +21,7 @@ dotnet test tests/DSoft.DataPrivacy.Tests --filter "FullyQualifiedName~ErasureTe
 dotnet run --project samples/DataPrivacySample -- --DataPrivacy:Regime=popia
 ```
 
-Warnings are errors. Both test target frameworks must be green before a change is done.
+Warnings are errors. The tests must be green before a change is done.
 
 ## Architecture
 
@@ -31,7 +31,7 @@ The repository is called GDPRCore, but the library is regulation-neutral: the pa
 DSoft.DataPrivacy                            netstandard2.0, no dependencies
     ↑                            ↑
 DSoft.DataPrivacy.EntityFrameworkCore        DSoft.DataPrivacy.Redaction
-net8.0; net10.0, EF Core                     net8.0; net10.0, Microsoft.Extensions.Compliance
+net10.0, EF Core 10                         net10.0, Microsoft.Extensions.Compliance
 ```
 
 **`DSoft.DataPrivacy`**: everything that must not depend on EF, so domain libraries can classify their own types.
@@ -63,7 +63,7 @@ net8.0; net10.0, EF Core                     net8.0; net10.0, Microsoft.Extensio
 ## Key configuration
 
 - **Shared build settings** (`Directory.Build.props`): nullable, warnings as errors, NuGet metadata, the `DSIcon.png` package icon, SourceLink in Release, and strong-name signing for any project containing `DSoft.snk`. Projects under `src/` generate their package on build.
-- **Package versions** are managed centrally in `Directory.Packages.props`. The EF Core and Compliance versions differ per target framework.
+- **Package versions** are managed centrally in `Directory.Packages.props`. The packages target .NET 10 (the abstractions stay netstandard2.0).
 - **Strong naming**: each package project and the test project has its own `DSoft.snk`. Do not remove these.
 - **Package version** is not set in any project. The release pipeline injects it with `/p:Version=$(Build.BuildNumber)`.
 
