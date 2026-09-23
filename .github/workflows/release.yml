@@ -9,7 +9,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'azure-pipelines-*.yml'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -27,9 +27,9 @@ jobs:
       contents: read
       id-token: write # Trusted Publishing
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.x'
 
@@ -61,7 +61,7 @@ jobs:
           find src -path '*/bin/Release/*' -name 'DSoft.*.nupkg' -exec cp {} artifacts/ \;
           ls artifacts
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: drop
           path: artifacts/*.nupkg
