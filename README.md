@@ -1,4 +1,4 @@
-# GDPRCore: DSoft.DataPrivacy
+# DSoft.DataPrivacy
 
 Data privacy tooling for Entity Framework Core. You mark which data is personal and what kind it is, using attributes or the fluent API, and choose the data protection law that applies. The library then uses that classification to:
 
