@@ -104,7 +104,7 @@ public class MarketingConsent
     public DateTime GivenAt { get; set; }
 }
 
-[RetainOnErasure(ErasureExemption.PublicHealth, Reason = "Health records must be kept for eight years")]
+[RetainOnErasure(RetentionGround.HealthOrSocialCare, Reason = "Health records must be kept for eight years")]
 [PersonalDataEntity(DataClass = "Clinical")]
 public class ClinicalNote
 {

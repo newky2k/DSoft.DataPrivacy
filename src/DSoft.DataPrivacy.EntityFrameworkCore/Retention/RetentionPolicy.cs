@@ -7,8 +7,9 @@ using DSoft.DataPrivacy.Rules;
 namespace DSoft.DataPrivacy.EntityFrameworkCore.Retention;
 
 /// <summary>
-/// How long records of one data class are kept, and what happens to them afterwards (Article 5(1)(e), storage
-/// limitation). Policies usually live in configuration or the database so a data protection officer can change them.
+/// How long records of one data class are kept, and what happens to them afterwards (storage limitation: GDPR
+/// Article 5(1)(e), POPIA section 14). Policies usually live in configuration or the database so a data
+/// protection or information officer can change them.
 /// </summary>
 /// <example>
 /// <code>

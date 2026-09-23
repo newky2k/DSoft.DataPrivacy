@@ -112,8 +112,11 @@ public sealed class PersonalDataModel
         }
     }
 
-    /// <summary>One row per classified property, for a data inventory or record of processing.</summary>
-    public PersonalDataInventory Inventory() => PersonalDataInventory.Create(this);
+    /// <summary>
+    /// One row per classified property, for a data inventory or record of processing. With a regime, special data
+    /// follows that law's definition and retention grounds carry their citation.
+    /// </summary>
+    public PersonalDataInventory Inventory(Regimes.PrivacyRegime? regime = null) => PersonalDataInventory.Create(this, regime);
 
     /// <summary>
     /// Finds properties on entities that hold personal data which carry no classification and no decision that
@@ -170,8 +173,8 @@ public sealed class PersonalDataModel
             IsDataSubject = entityType.FindAnnotation(PrivacyAnnotationNames.IsDataSubject)?.Value is true,
             DataClass = entityType.FindAnnotation(PrivacyAnnotationNames.DataClass)?.Value as string,
             Erasure = (ErasureAction)(entityType.FindAnnotation(PrivacyAnnotationNames.Erasure)?.Value as int? ?? 0),
-            Exemption = (ErasureExemption)(entityType.FindAnnotation(PrivacyAnnotationNames.Exemption)?.Value as int? ?? 0),
-            ExemptionReason = entityType.FindAnnotation(PrivacyAnnotationNames.ExemptionReason)?.Value as string,
+            RetentionGround = (RetentionGround)(entityType.FindAnnotation(PrivacyAnnotationNames.RetentionGround)?.Value as int? ?? 0),
+            RetentionReason = entityType.FindAnnotation(PrivacyAnnotationNames.RetentionReason)?.Value as string,
             Description = entityType.FindAnnotation(PrivacyAnnotationNames.Description)?.Value as string,
         };
 
@@ -214,7 +217,7 @@ public sealed class PersonalDataModel
             Anonymisation = (AnonymisationMethod)(property.FindAnnotation(PrivacyAnnotationNames.Anonymisation)?.Value as int? ?? 0),
             Anonymiser = property.FindAnnotation(PrivacyAnnotationNames.Anonymiser)?.Value as string,
             Erasure = (ErasureAction)(property.FindAnnotation(PrivacyAnnotationNames.Erasure)?.Value as int? ?? 0),
-            RetentionExemption = (ErasureExemption)(property.FindAnnotation(PrivacyAnnotationNames.Exemption)?.Value as int? ?? 0),
+            RetentionGround = (RetentionGround)(property.FindAnnotation(PrivacyAnnotationNames.RetentionGround)?.Value as int? ?? 0),
             Description = property.FindAnnotation(PrivacyAnnotationNames.Description)?.Value as string,
             Source = property.PropertyInfo != null && PersonalDataAttributeReader.Classify(property.PropertyInfo) != null
                 ? ClassificationSource.Attribute

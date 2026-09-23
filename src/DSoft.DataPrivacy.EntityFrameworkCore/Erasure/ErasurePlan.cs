@@ -128,7 +128,8 @@ internal sealed class ErasurePlan
                 Entity = planned.Entity.Name,
                 Key = FormatKey(planned),
                 Action = planned.Outcome.Action,
-                Exemption = planned.Outcome.Exemption,
+                RetentionGround = planned.Outcome.RetentionGround,
+                Citation = planned.Outcome.RetentionGround == RetentionGround.None ? null : _options.Regime?.Cite(planned.Outcome.RetentionGround),
                 Reason = planned.Outcome.Reason,
                 Anonymised = anonymised,
                 Retained = retained,
@@ -150,7 +151,7 @@ internal sealed class ErasurePlan
             {
                 Categories = property.Categories,
                 Erasure = property.Classification.Erasure,
-                RetentionExemption = property.Classification.RetentionExemption,
+                RetentionGround = property.Classification.RetentionGround,
                 Method = property.Classification.Anonymisation,
                 ValueType = Nullable.GetUnderlyingType(scalar.ClrType) ?? scalar.ClrType,
                 IsNullable = scalar.IsNullable,
@@ -158,7 +159,8 @@ internal sealed class ErasurePlan
 
             if (decision.Action == ErasureAction.Retain)
             {
-                retained.Add($"{property.Name} ({decision.Exemption})");
+                var citation = _options.Regime?.Cite(decision.RetentionGround);
+                retained.Add(citation == null ? $"{property.Name} ({decision.RetentionGround})" : $"{property.Name} ({decision.RetentionGround}, {citation})");
                 continue;
             }
 

@@ -42,12 +42,12 @@ public sealed class PersonalDataAttribute : Attribute
 
     /// <summary>
     /// Set to <see cref="ErasureAction.Retain"/> to keep this value when its record is anonymised, for example an
-    /// audit copy of a clinician's name. Give the reason in <see cref="RetentionExemption"/>.
+    /// audit copy of a clinician's name. Give the reason in <see cref="RetentionGround"/>.
     /// </summary>
     public ErasureAction Erasure { get; set; }
 
-    /// <summary>The Article 17(3) ground relied on when <see cref="Erasure"/> is <see cref="ErasureAction.Retain"/>.</summary>
-    public ErasureExemption RetentionExemption { get; set; }
+    /// <summary>The retention ground relied on when <see cref="Erasure"/> is <see cref="ErasureAction.Retain"/>.</summary>
+    public RetentionGround RetentionGround { get; set; }
 
     /// <summary>A human description of the value, for inventories and the record of processing.</summary>
     public string? Description { get; set; }

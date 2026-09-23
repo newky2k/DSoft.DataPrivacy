@@ -68,7 +68,7 @@ public class Payment
 }
 
 // Health screening answers must be kept under the club's health and safety duty.
-[RetainOnErasure(ErasureExemption.LegalObligation, Reason = "Health screening records are kept for the insurer")]
+[RetainOnErasure(RetentionGround.LegalObligation, Reason = "Health screening records are kept for the insurer")]
 public class HealthScreening
 {
     public int Id { get; set; }

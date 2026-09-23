@@ -37,12 +37,15 @@ public sealed class DataSubjectExportOptions
 
 /// <summary>
 /// Everything held about one data subject, grouped by entity. Serialise it with <see cref="ToJson"/> for a
-/// machine-readable answer to an access (Article 15) or portability (Article 20) request.
+/// machine-readable answer to an access or portability request.
 /// </summary>
 public sealed class DataSubjectExport
 {
     /// <summary>The data subject's entity.</summary>
     public string Subject { get; init; } = string.Empty;
+
+    /// <summary>The data protection law the export was produced under, when one is configured.</summary>
+    public string? Regime { get; init; }
 
     /// <summary>The data subject's key.</summary>
     public IReadOnlyDictionary<string, object?> SubjectKey { get; init; } = new Dictionary<string, object?>();

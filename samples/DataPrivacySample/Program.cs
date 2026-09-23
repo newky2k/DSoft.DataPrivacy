@@ -1,6 +1,7 @@
 using DSoft.DataPrivacy;
 using DSoft.DataPrivacy.EntityFrameworkCore.Erasure;
 using DSoft.DataPrivacy.EntityFrameworkCore.Retention;
+using DSoft.DataPrivacy.Regimes;
 using DSoft.DataPrivacy.Rules;
 using DataPrivacySample;
 using Microsoft.Data.Sqlite;
@@ -11,12 +12,15 @@ var builder = WebApplication.CreateBuilder(args);
 // Keep the key in a secret store in a real application, and never change it: old hashes stop matching.
 var hashKey = Convert.FromBase64String(builder.Configuration["DataPrivacy:HashKey"] ?? Convert.ToBase64String(new byte[32]));
 
+// The law in force for this deployment: "gdpr" or "popia". Run with --DataPrivacy:Regime=popia to switch.
+var regime = PrivacyRegimes.Get(builder.Configuration["DataPrivacy:Regime"] ?? "gdpr");
+
 var connection = new SqliteConnection("DataSource=:memory:");
 connection.Open();
 
 builder.Services.AddDbContext<GymContext>(options => options
     .UseSqlite(connection)
-    .UseDataPrivacy(privacy => privacy.UseHashKey(hashKey)));
+    .UseDataPrivacy(privacy => privacy.UseRegime(regime).UseHashKey(hashKey)));
 
 builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 
@@ -30,7 +34,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Where personal data lives: the start of a record of processing activities.
-app.MapGet("/privacy/inventory", (GymContext db) => Results.Text(db.PersonalData().Model.Inventory().ToCsv(), "text/csv"));
+app.MapGet("/privacy/inventory", (GymContext db) => Results.Text(db.PersonalData().Inventory().ToCsv(), "text/csv"));
 
 // Problems that would make an export incomplete or an erasure fail.
 app.MapGet("/privacy/issues", (GymContext db) => db.PersonalData().Validate().Select(i => i.ToString()));
@@ -48,9 +52,22 @@ app.MapPost("/members/{id:int}/erase", async (int id, bool? dryRun, GymContext d
     return result.Found ? Results.Ok(result) : Results.NotFound();
 });
 
-// The deadline for answering a request received on a given date.
-app.MapGet("/privacy/deadline", (DateOnly received, bool? extended) =>
-    DataSubjectRequestDeadline.Calculate(received.ToDateTime(TimeOnly.MinValue), extended ?? false).ToString("yyyy-MM-dd"));
+// The law in force: its terms, the rights it gives and its breach rule.
+app.MapGet("/privacy/regime", () => new
+{
+    regime.Name,
+    regime.Legislation,
+    regime.ControllerTerm,
+    regime.ProcessorTerm,
+    Rights = regime.RequestTypes.Select(t => $"{t} ({regime.Cite(t)})"),
+    regime.BreachNotificationRule,
+});
+
+// When a response to a request received on a given date is due under the law in force.
+app.MapGet("/privacy/deadline", (DataSubjectRequestType type, DateOnly received, bool? extended) =>
+    regime.RequestDeadline(type, received.ToDateTime(TimeOnly.MinValue), extended ?? false) is DateTime due
+        ? Results.Ok(due.ToString("yyyy-MM-dd"))
+        : Results.Ok($"{regime.Name} sets no fixed period for {type}; respond as soon as reasonably practicable."));
 
 // A retention sweep: visits are kept for two years. Run this from a scheduled job.
 app.MapPost("/privacy/retention/visits", async (GymContext db) =>

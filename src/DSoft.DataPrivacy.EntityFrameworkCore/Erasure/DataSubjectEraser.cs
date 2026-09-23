@@ -30,7 +30,7 @@ internal sealed class DataSubjectEraser
         var subject = _model.GetDataSubject(subjectType);
         var subjectRow = await EntityValues.FindAsync(_context, subject.EntityType, key, tracking: true, cancellationToken).ConfigureAwait(false);
         if (subjectRow == null)
-            return new ErasureResult { Subject = subject.Name, Found = false, DryRun = options.DryRun, At = now };
+            return new ErasureResult { Subject = subject.Name, Regime = _options.Regime?.Name, Found = false, DryRun = options.DryRun, At = now };
 
         var policy = options.Policy ?? _options.ErasurePolicy;
         var plan = new ErasurePlan(_context, _model, _options);
@@ -65,6 +65,7 @@ internal sealed class DataSubjectEraser
         return new ErasureResult
         {
             Subject = subject.Name,
+            Regime = _options.Regime?.Name,
             Found = true,
             DryRun = options.DryRun,
             At = now,
@@ -78,8 +79,8 @@ internal sealed class DataSubjectEraser
             {
                 Categories = entity.Categories,
                 EntityErasure = entity.Erasure,
-                EntityExemption = entity.Exemption,
-                ExemptionReason = entity.ExemptionReason,
+                EntityGround = entity.RetentionGround,
+                RetentionReason = entity.RetentionReason,
                 LegalHold = options.LegalHold || options.IsOnLegalHold?.Invoke(entity, row) == true,
             },
             policy);

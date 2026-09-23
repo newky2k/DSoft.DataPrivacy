@@ -57,8 +57,11 @@ public sealed record ErasureLogEntry
     /// <summary>What was done.</summary>
     public ErasureAction Action { get; init; }
 
-    /// <summary>The Article 17(3) ground, when the record or a value was retained.</summary>
-    public ErasureExemption Exemption { get; init; }
+    /// <summary>The retention ground, when the record or a value was retained.</summary>
+    public RetentionGround RetentionGround { get; init; }
+
+    /// <summary>The provision the retention ground rests on under the regime in force, such as <c>Art 17(3)(c)</c> or <c>s14(1)(a)</c>.</summary>
+    public string? Citation { get; init; }
 
     /// <summary>Why.</summary>
     public string Reason { get; init; } = string.Empty;
@@ -75,6 +78,9 @@ public sealed class ErasureResult
 {
     /// <summary>The data subject's entity.</summary>
     public string Subject { get; init; } = string.Empty;
+
+    /// <summary>The data protection law in force, when one is configured.</summary>
+    public string? Regime { get; init; }
 
     /// <summary>True when the data subject was found.</summary>
     public bool Found { get; init; }

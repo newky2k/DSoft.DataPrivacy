@@ -8,10 +8,13 @@ public static class PersonalDataCategoryExtensions
     /// <summary>True when any of <paramref name="other"/>'s flags are set.</summary>
     public static bool HasAny(this PersonalDataCategory categories, PersonalDataCategory other) => (categories & other) != 0;
 
-    /// <summary>True for Article 9 special category data.</summary>
+    /// <summary>
+    /// True for the special categories common to the GDPR and POPIA. Use <see cref="Regimes.PrivacyRegime.IsSpecial"/>
+    /// for the exact definition of the law in force.
+    /// </summary>
     public static bool IsSpecialCategory(this PersonalDataCategory categories) => categories.HasAny(PersonalDataCategory.SpecialCategory);
 
-    /// <summary>True for Article 10 criminal offence data.</summary>
+    /// <summary>True for criminal offence data.</summary>
     public static bool IsCriminalOffence(this PersonalDataCategory categories) => categories.HasAny(PersonalDataCategory.CriminalOffence);
 
     /// <summary>

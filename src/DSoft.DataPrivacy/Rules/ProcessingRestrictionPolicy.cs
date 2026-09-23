@@ -41,19 +41,19 @@ public enum ProcessingOperation
 }
 
 /// <summary>
-/// Decides whether an operation may run on a person's data while their processing is restricted (Article 18).
+/// Decides whether an operation may run on a person's data while their processing is restricted (GDPR Article 18, POPIA section 14(6)).
 /// Apart from storage, restricted data may only be processed with the person's consent, for legal claims, to
-/// protect another person's rights, or for important public interest (Article 18(2)).
+/// protect another person's rights, or for important public interest (GDPR Article 18(2), POPIA section 14(7)).
 /// </summary>
 /// <remarks>
 /// Answering the person's own access or rectification request is permitted: it is done at their request and is
-/// how a dispute that led to the restriction is resolved. Tell the person before a restriction is lifted (Article 18(3)).
+/// how a dispute that led to the restriction is resolved. Tell the person before a restriction is lifted (GDPR Article 18(3), POPIA section 14(8)).
 /// </remarks>
 public sealed class ProcessingRestrictionPolicy
 {
     private readonly HashSet<ProcessingOperation> _permitted;
 
-    /// <summary>A policy permitting only what Article 18(2) permits.</summary>
+    /// <summary>A policy permitting only what the restriction provisions permit.</summary>
     public ProcessingRestrictionPolicy()
     {
         _permitted = new HashSet<ProcessingOperation>
@@ -67,14 +67,14 @@ public sealed class ProcessingRestrictionPolicy
         };
     }
 
-    /// <summary>The Article 18(2) policy.</summary>
+    /// <summary>The default restriction policy.</summary>
     public static ProcessingRestrictionPolicy Default { get; } = new();
 
     /// <summary>Operations permitted while restricted, without consent.</summary>
     public IReadOnlyCollection<ProcessingOperation> Permitted => _permitted;
 
     /// <summary>
-    /// Also permits <paramref name="operation"/> while restricted. Only do this where one of the Article 18(2)
+    /// Also permits <paramref name="operation"/> while restricted. Only do this where one of the restriction
     /// grounds applies to it, for example direct care that protects the person's own vital interests.
     /// </summary>
     public ProcessingRestrictionPolicy Permit(ProcessingOperation operation)

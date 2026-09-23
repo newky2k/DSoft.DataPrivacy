@@ -83,23 +83,23 @@ public sealed class PersonalDataEntityAttribute : Attribute
 
 /// <summary>
 /// Keeps an entity's records, and their personal data, when the person they belong to is erased, relying on an
-/// Article 17(3) exemption. Use for records the controller has a legal duty to keep: health records, accounting
+/// retention ground. Use for records the organisation has a legal duty to keep: health records, accounting
 /// entries, anything under a legal hold.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
 public sealed class RetainOnErasureAttribute : Attribute
 {
-    /// <summary>Keep the records under <paramref name="exemption"/>.</summary>
-    public RetainOnErasureAttribute(ErasureExemption exemption)
+    /// <summary>Keep the records under <paramref name="ground"/>.</summary>
+    public RetainOnErasureAttribute(RetentionGround ground)
     {
-        if (exemption == ErasureExemption.None)
-            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+        if (ground == RetentionGround.None)
+            throw new ArgumentException("Retaining data after an erasure request needs a retention ground.", nameof(ground));
 
-        Exemption = exemption;
+        RetentionGround = ground;
     }
 
-    /// <summary>The Article 17(3) ground relied on.</summary>
-    public ErasureExemption Exemption { get; }
+    /// <summary>The retention ground relied on.</summary>
+    public RetentionGround RetentionGround { get; }
 
     /// <summary>The duty that requires the records to be kept, in words a data subject could be given.</summary>
     public string? Reason { get; set; }

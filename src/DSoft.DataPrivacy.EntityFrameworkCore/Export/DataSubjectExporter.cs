@@ -17,10 +17,13 @@ internal sealed class DataSubjectExporter
     private readonly DbContext _context;
     private readonly PersonalDataModel _model;
 
-    public DataSubjectExporter(DbContext context, PersonalDataModel model)
+    private readonly Regimes.PrivacyRegime? _regime;
+
+    public DataSubjectExporter(DbContext context, PersonalDataModel model, Regimes.PrivacyRegime? regime)
     {
         _context = context;
         _model = model;
+        _regime = regime;
     }
 
     public async Task<DataSubjectExport?> ExportAsync(Type subjectType, object?[] key, DataSubjectExportOptions options, CancellationToken cancellationToken)
@@ -33,6 +36,7 @@ internal sealed class DataSubjectExporter
         var export = new DataSubjectExport
         {
             Subject = subject.Name,
+            Regime = _regime?.Name,
             SubjectKey = EntityValues.KeyMap(_context, subjectRow, subject.EntityType),
             RequestReference = options.RequestReference,
             GeneratedAt = DateTimeOffset.UtcNow,

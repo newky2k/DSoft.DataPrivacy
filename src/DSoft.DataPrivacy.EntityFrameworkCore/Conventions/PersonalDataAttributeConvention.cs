@@ -46,10 +46,10 @@ public sealed class PersonalDataAttributeConvention : IModelFinalizingConvention
             builder.HasAnnotation(PrivacyAnnotationNames.DataClass, info.DataClass, fromDataAnnotation: true);
         if (info.Erasure != ErasureAction.Default)
             builder.HasAnnotation(PrivacyAnnotationNames.Erasure, (int)info.Erasure, fromDataAnnotation: true);
-        if (info.Exemption != ErasureExemption.None)
-            builder.HasAnnotation(PrivacyAnnotationNames.Exemption, (int)info.Exemption, fromDataAnnotation: true);
-        if (info.ExemptionReason != null)
-            builder.HasAnnotation(PrivacyAnnotationNames.ExemptionReason, info.ExemptionReason, fromDataAnnotation: true);
+        if (info.RetentionGround != RetentionGround.None)
+            builder.HasAnnotation(PrivacyAnnotationNames.RetentionGround, (int)info.RetentionGround, fromDataAnnotation: true);
+        if (info.RetentionReason != null)
+            builder.HasAnnotation(PrivacyAnnotationNames.RetentionReason, info.RetentionReason, fromDataAnnotation: true);
         if (info.Description != null)
             builder.HasAnnotation(PrivacyAnnotationNames.Description, info.Description, fromDataAnnotation: true);
     }
@@ -73,8 +73,8 @@ public sealed class PersonalDataAttributeConvention : IModelFinalizingConvention
                 builder.HasAnnotation(PrivacyAnnotationNames.Anonymiser, classification.Anonymiser, fromDataAnnotation: true);
             if (classification.Erasure != ErasureAction.Default)
                 builder.HasAnnotation(PrivacyAnnotationNames.Erasure, (int)classification.Erasure, fromDataAnnotation: true);
-            if (classification.RetentionExemption != ErasureExemption.None)
-                builder.HasAnnotation(PrivacyAnnotationNames.Exemption, (int)classification.RetentionExemption, fromDataAnnotation: true);
+            if (classification.RetentionGround != RetentionGround.None)
+                builder.HasAnnotation(PrivacyAnnotationNames.RetentionGround, (int)classification.RetentionGround, fromDataAnnotation: true);
             if (classification.Description != null)
                 builder.HasAnnotation(PrivacyAnnotationNames.Description, classification.Description, fromDataAnnotation: true);
         }
@@ -117,10 +117,10 @@ public sealed class PersonalDataAttributeConvention : IModelFinalizingConvention
         {
             if (entityType.FindAnnotation(PrivacyAnnotationNames.Erasure)?.Value is int erasure
                 && erasure == (int)ErasureAction.Retain
-                && entityType.FindAnnotation(PrivacyAnnotationNames.Exemption)?.Value is not int)
+                && entityType.FindAnnotation(PrivacyAnnotationNames.RetentionGround)?.Value is not int)
             {
                 throw new InvalidOperationException(
-                    $"Entity '{entityType.DisplayName()}' is retained on erasure but names no Article 17(3) exemption.");
+                    $"Entity '{entityType.DisplayName()}' is retained on erasure but names no retention ground.");
             }
 
             foreach (var property in entityType.GetDeclaredProperties())

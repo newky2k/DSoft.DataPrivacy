@@ -26,8 +26,8 @@ public sealed record PersonalDataInventoryItem
     /// <summary>What kind of personal data it is.</summary>
     public PersonalDataCategory Categories { get; init; }
 
-    /// <summary>True for Article 9 special category data.</summary>
-    public bool SpecialCategory => Categories.IsSpecialCategory();
+    /// <summary>True for special data, under the regime passed to the inventory, or the common special categories without one.</summary>
+    public bool SpecialCategory { get; init; }
 
     /// <summary>The property's data class, or its entity's.</summary>
     public string? DataClass { get; init; }
@@ -46,7 +46,7 @@ public sealed record PersonalDataInventoryItem
 }
 
 /// <summary>
-/// Every classified property in a model. Feed it to the record of processing activities (Article 30), a DPIA,
+/// Every classified property in a model. Feed it to a record of processing activities, a privacy impact assessment,
 /// or a report of where personal data lives.
 /// </summary>
 public sealed class PersonalDataInventory
@@ -59,7 +59,7 @@ public sealed class PersonalDataInventory
     /// <summary>The rows, ordered by entity then property.</summary>
     public IReadOnlyList<PersonalDataInventoryItem> Items { get; }
 
-    internal static PersonalDataInventory Create(PersonalDataModel model)
+    internal static PersonalDataInventory Create(PersonalDataModel model, Regimes.PrivacyRegime? regime)
     {
         var items = new List<PersonalDataInventoryItem>();
 
@@ -71,7 +71,9 @@ public sealed class PersonalDataInventory
 
             var onErasure = entity.Erasure switch
             {
-                ErasureAction.Retain => $"Retain ({entity.Exemption})",
+                ErasureAction.Retain => regime?.Cite(entity.RetentionGround) is string citation
+                    ? $"Retain ({entity.RetentionGround}, {citation})"
+                    : $"Retain ({entity.RetentionGround})",
                 ErasureAction.Anonymise => "Anonymise",
                 ErasureAction.Delete => "Delete",
                 _ => entity.IsDataSubject ? "Delete, or anonymise if records depend on it" : "Delete",
@@ -87,6 +89,7 @@ public sealed class PersonalDataInventory
                     Column = property.Property.FindAnnotation("Relational:ColumnName")?.Value as string ?? property.Property.Name,
                     ValueType = (Nullable.GetUnderlyingType(property.Property.ClrType) ?? property.Property.ClrType).Name,
                     Categories = property.Categories,
+                    SpecialCategory = regime?.IsSpecial(property.Categories) ?? property.Categories.IsSpecialCategory(),
                     DataClass = property.Classification.DataClass ?? entity.DataClass,
                     IsDataSubject = entity.IsDataSubject,
                     LinkedBy = linkedBy,

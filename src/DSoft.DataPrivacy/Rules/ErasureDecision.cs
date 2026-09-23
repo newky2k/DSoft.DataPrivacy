@@ -12,11 +12,11 @@ public sealed record RecordErasureFacts
     /// <summary>What the entity is configured to do on erasure.</summary>
     public ErasureAction EntityErasure { get; init; }
 
-    /// <summary>The Article 17(3) ground configured on the entity, when it is retained.</summary>
-    public ErasureExemption EntityExemption { get; init; }
+    /// <summary>The retention ground configured on the entity, when it is retained.</summary>
+    public RetentionGround EntityGround { get; init; }
 
-    /// <summary>The reason configured with <see cref="EntityExemption"/>.</summary>
-    public string? ExemptionReason { get; init; }
+    /// <summary>The reason configured with <see cref="EntityGround"/>.</summary>
+    public string? RetentionReason { get; init; }
 
     /// <summary>True when data about the person must be kept for an actual or expected legal claim.</summary>
     public bool LegalHold { get; init; }
@@ -31,8 +31,8 @@ public sealed record FieldErasureFacts
     /// <summary><see cref="ErasureAction.Retain"/> keeps the value.</summary>
     public ErasureAction Erasure { get; init; }
 
-    /// <summary>The Article 17(3) ground for keeping the value.</summary>
-    public ErasureExemption RetentionExemption { get; init; }
+    /// <summary>The retention ground for keeping the value.</summary>
+    public RetentionGround RetentionGround { get; init; }
 
     /// <summary>The configured method; <see cref="AnonymisationMethod.Default"/> lets the rule choose.</summary>
     public AnonymisationMethod Method { get; init; }
@@ -47,10 +47,10 @@ public sealed record FieldErasureFacts
 /// <summary>The decision for a record or a value.</summary>
 public sealed record ErasureOutcome
 {
-    private ErasureOutcome(ErasureAction action, ErasureExemption exemption, AnonymisationMethod method, string reason)
+    private ErasureOutcome(ErasureAction action, RetentionGround ground, AnonymisationMethod method, string reason)
     {
         Action = action;
-        Exemption = exemption;
+        RetentionGround = ground;
         Method = method;
         Reason = reason;
     }
@@ -58,8 +58,8 @@ public sealed record ErasureOutcome
     /// <summary><see cref="ErasureAction.Delete"/>, <see cref="ErasureAction.Anonymise"/> or <see cref="ErasureAction.Retain"/>.</summary>
     public ErasureAction Action { get; }
 
-    /// <summary>The Article 17(3) ground, when retained.</summary>
-    public ErasureExemption Exemption { get; }
+    /// <summary>The retention ground, when retained.</summary>
+    public RetentionGround RetentionGround { get; }
 
     /// <summary>The method to use, when a value is anonymised.</summary>
     public AnonymisationMethod Method { get; }
@@ -68,24 +68,24 @@ public sealed record ErasureOutcome
     public string Reason { get; }
 
     /// <summary>Delete the record.</summary>
-    public static ErasureOutcome Delete(string reason) => new(ErasureAction.Delete, ErasureExemption.None, AnonymisationMethod.Default, reason);
+    public static ErasureOutcome Delete(string reason) => new(ErasureAction.Delete, RetentionGround.None, AnonymisationMethod.Default, reason);
 
     /// <summary>Keep the record and anonymise its personal data, or anonymise a value with <paramref name="method"/>.</summary>
     public static ErasureOutcome Anonymise(string reason, AnonymisationMethod method = AnonymisationMethod.Default)
-        => new(ErasureAction.Anonymise, ErasureExemption.None, method, reason);
+        => new(ErasureAction.Anonymise, RetentionGround.None, method, reason);
 
-    /// <summary>Keep the record or value under <paramref name="exemption"/>.</summary>
-    public static ErasureOutcome Retain(ErasureExemption exemption, string reason)
+    /// <summary>Keep the record or value under <paramref name="ground"/>.</summary>
+    public static ErasureOutcome Retain(RetentionGround ground, string reason)
     {
-        if (exemption == ErasureExemption.None)
-            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+        if (ground == RetentionGround.None)
+            throw new ArgumentException("Retaining data after an erasure request needs a retention ground.", nameof(ground));
 
-        return new(ErasureAction.Retain, exemption, AnonymisationMethod.Default, reason);
+        return new(ErasureAction.Retain, ground, AnonymisationMethod.Default, reason);
     }
 }
 
 /// <summary>A category of data kept on every erasure, and the ground for keeping it.</summary>
-public sealed record CategoryRetention(PersonalDataCategory Categories, ErasureExemption Exemption, string Reason);
+public sealed record CategoryRetention(PersonalDataCategory Categories, RetentionGround Ground, string Reason);
 
 /// <summary>
 /// Controller-wide erasure rules that apply on top of how each entity is configured.
@@ -94,37 +94,37 @@ public sealed record CategoryRetention(PersonalDataCategory Categories, ErasureE
 /// <code>
 /// // A health provider keeps clinical data whatever entity it is found on.
 /// var policy = new ErasurePolicy()
-///     .RetainCategory(PersonalDataCategory.Health, ErasureExemption.PublicHealth, "Health records retention schedule");
+///     .RetainCategory(PersonalDataCategory.Health, RetentionGround.HealthOrSocialCare, "Health records retention schedule");
 /// </code>
 /// </example>
 public sealed class ErasurePolicy
 {
     private readonly List<CategoryRetention> _retainedCategories = new();
 
-    /// <summary>A policy with no controller-wide rules: every entity is erased as it is configured.</summary>
+    /// <summary>A policy with no organisation-wide rules: every entity is erased as it is configured.</summary>
     public static ErasurePolicy Default { get; } = new();
 
     /// <summary>Categories whose records are always kept.</summary>
     public IReadOnlyList<CategoryRetention> RetainedCategories => _retainedCategories;
 
-    /// <summary>Keeps every record holding any of <paramref name="categories"/>, under <paramref name="exemption"/>.</summary>
-    public ErasurePolicy RetainCategory(PersonalDataCategory categories, ErasureExemption exemption, string reason)
+    /// <summary>Keeps every record holding any of <paramref name="categories"/>, under <paramref name="ground"/>.</summary>
+    public ErasurePolicy RetainCategory(PersonalDataCategory categories, RetentionGround ground, string reason)
     {
         if (ReferenceEquals(this, Default))
             throw new InvalidOperationException("The default policy cannot be changed; create a new ErasurePolicy.");
         if (categories == PersonalDataCategory.None)
             throw new ArgumentException("Name at least one category.", nameof(categories));
-        if (exemption == ErasureExemption.None)
-            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+        if (ground == RetentionGround.None)
+            throw new ArgumentException("Retaining data after an erasure request needs a retention ground.", nameof(ground));
 
-        _retainedCategories.Add(new CategoryRetention(categories, exemption, reason));
+        _retainedCategories.Add(new CategoryRetention(categories, ground, reason));
         return this;
     }
 }
 
 /// <summary>
 /// Decides, for each record and value, whether an erasure deletes it, anonymises it or keeps it on a stated
-/// Article 17(3) ground. It is pure: the engine gathers the facts, this rule decides, and a test can cover every
+/// retention ground. It is pure: the engine gathers the facts, this rule decides, and a test can cover every
 /// branch without a database.
 /// </summary>
 public static class ErasureDecision
@@ -146,20 +146,20 @@ public static class ErasureDecision
         policy ??= ErasurePolicy.Default;
 
         if (facts.LegalHold)
-            return ErasureOutcome.Retain(ErasureExemption.LegalClaims, "Held for a legal claim.");
+            return ErasureOutcome.Retain(RetentionGround.LegalClaims, "Held for a legal claim.");
 
         if (facts.EntityErasure == ErasureAction.Retain)
         {
-            if (facts.EntityExemption == ErasureExemption.None)
-                throw new InvalidOperationException("An entity retained on erasure must name its Article 17(3) exemption.");
+            if (facts.EntityGround == RetentionGround.None)
+                throw new InvalidOperationException("An entity retained on erasure must name its retention ground.");
 
-            return ErasureOutcome.Retain(facts.EntityExemption, facts.ExemptionReason ?? "Retained under a duty to keep the record.");
+            return ErasureOutcome.Retain(facts.EntityGround, facts.RetentionReason ?? "Retained under a duty to keep the record.");
         }
 
         foreach (var rule in policy.RetainedCategories)
         {
             if (facts.Categories.HasAny(rule.Categories))
-                return ErasureOutcome.Retain(rule.Exemption, rule.Reason);
+                return ErasureOutcome.Retain(rule.Ground, rule.Reason);
         }
 
         if (facts.EntityErasure == ErasureAction.Anonymise)
@@ -186,10 +186,10 @@ public static class ErasureDecision
 
         if (facts.Erasure == ErasureAction.Retain)
         {
-            if (facts.RetentionExemption == ErasureExemption.None)
-                throw new InvalidOperationException("A value retained on erasure must name its Article 17(3) exemption.");
+            if (facts.RetentionGround == RetentionGround.None)
+                throw new InvalidOperationException("A value retained on erasure must name its retention ground.");
 
-            return ErasureOutcome.Retain(facts.RetentionExemption, "Value retained with its record.");
+            return ErasureOutcome.Retain(facts.RetentionGround, "Value retained with its record.");
         }
 
         var method = facts.Method != AnonymisationMethod.Default ? facts.Method : DefaultMethod(facts);

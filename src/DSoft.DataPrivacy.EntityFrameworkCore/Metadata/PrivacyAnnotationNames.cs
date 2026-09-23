@@ -21,11 +21,11 @@ public static class PrivacyAnnotationNames
     /// <summary>Entity or property: the <see cref="ErasureAction"/>, as an int.</summary>
     public const string Erasure = Prefix + "Erasure";
 
-    /// <summary>Entity or property: the <see cref="ErasureExemption"/>, as an int.</summary>
-    public const string Exemption = Prefix + "Exemption";
+    /// <summary>Entity or property: the <see cref="RetentionGround"/>, as an int.</summary>
+    public const string RetentionGround = Prefix + "RetentionGround";
 
     /// <summary>Entity: the reason given for retaining records.</summary>
-    public const string ExemptionReason = Prefix + "ExemptionReason";
+    public const string RetentionReason = Prefix + "RetentionReason";
 
     /// <summary>Entity or property: a human description.</summary>
     public const string Description = Prefix + "Description";

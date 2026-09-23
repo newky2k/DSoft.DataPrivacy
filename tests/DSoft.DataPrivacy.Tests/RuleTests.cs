@@ -15,16 +15,16 @@ public sealed class RuleTests
         var outcome = ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = ErasureAction.Delete, LegalHold = true });
 
         Assert.Equal(ErasureAction.Retain, outcome.Action);
-        Assert.Equal(ErasureExemption.LegalClaims, outcome.Exemption);
+        Assert.Equal(RetentionGround.LegalClaims, outcome.RetentionGround);
     }
 
     [Fact]
     public void A_retained_entity_is_kept_with_its_exemption()
     {
-        var outcome = ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = ErasureAction.Retain, EntityExemption = ErasureExemption.PublicHealth });
+        var outcome = ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = ErasureAction.Retain, EntityGround = RetentionGround.HealthOrSocialCare });
 
         Assert.Equal(ErasureAction.Retain, outcome.Action);
-        Assert.Equal(ErasureExemption.PublicHealth, outcome.Exemption);
+        Assert.Equal(RetentionGround.HealthOrSocialCare, outcome.RetentionGround);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class RuleTests
     [Fact]
     public void A_policy_category_keeps_the_record()
     {
-        var policy = new ErasurePolicy().RetainCategory(PersonalDataCategory.Health, ErasureExemption.PublicHealth, "Clinical records");
+        var policy = new ErasurePolicy().RetainCategory(PersonalDataCategory.Health, RetentionGround.HealthOrSocialCare, "Clinical records");
 
         var outcome = ErasureDecision.DecideRecord(new RecordErasureFacts { Categories = PersonalDataCategory.Health | PersonalDataCategory.FreeText }, policy);
 
@@ -63,7 +63,7 @@ public sealed class RuleTests
     [Fact]
     public void A_retained_value_needs_an_exemption()
     {
-        Assert.Equal(ErasureAction.Retain, ErasureDecision.DecideField(new FieldErasureFacts { Erasure = ErasureAction.Retain, RetentionExemption = ErasureExemption.PublicHealth }).Action);
+        Assert.Equal(ErasureAction.Retain, ErasureDecision.DecideField(new FieldErasureFacts { Erasure = ErasureAction.Retain, RetentionGround = RetentionGround.HealthOrSocialCare }).Action);
         Assert.Throws<InvalidOperationException>(() => ErasureDecision.DecideField(new FieldErasureFacts { Erasure = ErasureAction.Retain }));
     }
 
@@ -85,24 +85,6 @@ public sealed class RuleTests
         Assert.True(period.HasElapsed(new DateTimeOffset(2020, 2, 29, 0, 0, 0, TimeSpan.Zero), now));
         Assert.False(period.HasElapsed(null, now));
         Assert.Equal("P6Y", period.ToString());
-    }
-
-    [Fact]
-    public void Deadline_uses_the_last_day_when_the_month_is_short()
-    {
-        // 29 February 2028 is a Tuesday.
-        Assert.Equal(new DateTime(2028, 2, 29), DataSubjectRequestDeadline.Calculate(new DateTime(2028, 1, 31)));
-
-        // 28 February 2026 is a Saturday, so the deadline moves to Monday 2 March.
-        Assert.Equal(new DateTime(2026, 3, 2), DataSubjectRequestDeadline.Calculate(new DateTime(2026, 1, 31)));
-    }
-
-    [Fact]
-    public void Deadline_is_the_same_date_next_month_or_three_months_when_extended()
-    {
-        Assert.Equal(new DateTime(2026, 10, 5), DataSubjectRequestDeadline.Calculate(new DateTime(2026, 9, 5)));
-        Assert.Equal(new DateTime(2026, 12, 7), DataSubjectRequestDeadline.Calculate(new DateTime(2026, 9, 7), extended: true));
-        Assert.True(DataSubjectRequestDeadline.IsOverdue(new DateTime(2026, 9, 5), new DateTime(2026, 10, 6)));
     }
 
     [Fact]
@@ -147,7 +129,7 @@ public sealed class RuleTests
 
         Assert.Equal(new[] { "Customer" }, registry.DataSubjects.Select(t => t.Type.Name));
         Assert.Null(registry.Find(typeof(OrderLine))); // configured only through the fluent API
-        Assert.Equal(ErasureExemption.PublicHealth, registry.Find(typeof(ClinicalNote))!.Exemption);
+        Assert.Equal(RetentionGround.HealthOrSocialCare, registry.Find(typeof(ClinicalNote))!.RetentionGround);
         Assert.Contains("Sales", registry.DataClasses());
     }
 

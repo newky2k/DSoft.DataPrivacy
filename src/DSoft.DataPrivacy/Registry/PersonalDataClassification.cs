@@ -33,8 +33,8 @@ public sealed record PersonalDataPropertyClassification
     /// <summary><see cref="ErasureAction.Retain"/> keeps the value when its record is anonymised.</summary>
     public ErasureAction Erasure { get; init; }
 
-    /// <summary>The Article 17(3) ground for keeping the value.</summary>
-    public ErasureExemption RetentionExemption { get; init; }
+    /// <summary>The retention ground for keeping the value.</summary>
+    public RetentionGround RetentionGround { get; init; }
 
     /// <summary>A human description of the value.</summary>
     public string? Description { get; init; }

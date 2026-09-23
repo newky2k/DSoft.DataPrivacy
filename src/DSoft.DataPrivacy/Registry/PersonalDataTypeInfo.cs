@@ -13,8 +13,8 @@ public sealed class PersonalDataTypeInfo
         bool isDataSubject,
         string? dataClass,
         ErasureAction erasure,
-        ErasureExemption exemption,
-        string? exemptionReason,
+        RetentionGround ground,
+        string? retentionReason,
         string? description,
         IReadOnlyList<PersonalDataPropertyInfo> properties,
         IReadOnlyList<NotPersonalDataPropertyInfo> notPersonalData,
@@ -26,8 +26,8 @@ public sealed class PersonalDataTypeInfo
         IsDataSubject = isDataSubject;
         DataClass = dataClass;
         Erasure = erasure;
-        Exemption = exemption;
-        ExemptionReason = exemptionReason;
+        RetentionGround = ground;
+        RetentionReason = retentionReason;
         Description = description;
         Properties = properties;
         NotPersonalData = notPersonalData;
@@ -48,11 +48,11 @@ public sealed class PersonalDataTypeInfo
     /// <summary>What happens to a record on erasure; <see cref="ErasureAction.Retain"/> when <see cref="RetainOnErasureAttribute"/> is present.</summary>
     public ErasureAction Erasure { get; }
 
-    /// <summary>The Article 17(3) ground from <see cref="RetainOnErasureAttribute"/>.</summary>
-    public ErasureExemption Exemption { get; }
+    /// <summary>The retention ground from <see cref="RetainOnErasureAttribute"/>.</summary>
+    public RetentionGround RetentionGround { get; }
 
     /// <summary>The reason given on <see cref="RetainOnErasureAttribute"/>.</summary>
-    public string? ExemptionReason { get; }
+    public string? RetentionReason { get; }
 
     /// <summary>The description from <see cref="PersonalDataEntityAttribute"/>.</summary>
     public string? Description { get; }

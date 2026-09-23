@@ -52,19 +52,19 @@ public static class DataPrivacyPropertyBuilderExtensions
     /// Keeps this value when its record is anonymised on erasure, for example a copy of a clinician's name on a
     /// clinical entry. The property must also be marked as personal data.
     /// </summary>
-    public static PropertyBuilder RetainOnErasure(this PropertyBuilder builder, ErasureExemption exemption)
+    public static PropertyBuilder RetainOnErasure(this PropertyBuilder builder, RetentionGround ground)
     {
-        if (exemption == ErasureExemption.None)
-            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+        if (ground == RetentionGround.None)
+            throw new ArgumentException("Retaining data after an erasure request needs a retention ground.", nameof(ground));
 
         builder.HasAnnotation(PrivacyAnnotationNames.Erasure, (int)ErasureAction.Retain);
-        builder.HasAnnotation(PrivacyAnnotationNames.Exemption, (int)exemption);
+        builder.HasAnnotation(PrivacyAnnotationNames.RetentionGround, (int)ground);
         return builder;
     }
 
-    /// <inheritdoc cref="RetainOnErasure(PropertyBuilder, ErasureExemption)"/>
-    public static PropertyBuilder<TProperty> RetainOnErasure<TProperty>(this PropertyBuilder<TProperty> builder, ErasureExemption exemption)
-        => (PropertyBuilder<TProperty>)RetainOnErasure((PropertyBuilder)builder, exemption);
+    /// <inheritdoc cref="RetainOnErasure(PropertyBuilder, RetentionGround)"/>
+    public static PropertyBuilder<TProperty> RetainOnErasure<TProperty>(this PropertyBuilder<TProperty> builder, RetentionGround ground)
+        => (PropertyBuilder<TProperty>)RetainOnErasure((PropertyBuilder)builder, ground);
 
     /// <summary>Records a decision that the property is not personal data. Same as <see cref="NotPersonalDataAttribute"/>.</summary>
     public static PropertyBuilder IsNotPersonalData(this PropertyBuilder builder, string? reason = null)

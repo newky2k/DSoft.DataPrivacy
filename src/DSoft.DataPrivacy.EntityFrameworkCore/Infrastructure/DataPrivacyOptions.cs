@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using DSoft.DataPrivacy.EntityFrameworkCore.Auditing;
+using DSoft.DataPrivacy.Regimes;
 using DSoft.DataPrivacy.Rules;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -18,6 +19,12 @@ public sealed class DataPrivacyOptions
     internal Dictionary<string, Func<AnonymisationContext, object?>> Anonymisers { get; } = new(StringComparer.Ordinal);
 
     internal List<IPersonalDataChangeObserver> ChangeObservers { get; } = new();
+
+    /// <summary>
+    /// The data protection law in force, which supplies citations and checks retention grounds. <c>null</c> until
+    /// <see cref="DataPrivacyOptionsBuilder.UseRegime(PrivacyRegime)"/> is called.
+    /// </summary>
+    public PrivacyRegime? Regime { get; internal set; }
 
     /// <summary>The hasher used by <see cref="AnonymisationMethod.Hash"/>, when a key has been configured.</summary>
     public PersonalDataHasher? Hasher { get; internal set; }
@@ -49,6 +56,20 @@ public sealed class DataPrivacyOptionsBuilder
     internal DataPrivacyOptions Options { get; }
 
     /// <summary>
+    /// Sets the data protection law in force, such as <see cref="PrivacyRegimes.Gdpr"/> or
+    /// <see cref="PrivacyRegimes.Popia"/>. Erasure logs then cite its provisions, and <c>Validate()</c> reports
+    /// retention grounds the law does not recognise.
+    /// </summary>
+    public DataPrivacyOptionsBuilder UseRegime(PrivacyRegime regime)
+    {
+        Options.Regime = regime ?? throw new ArgumentNullException(nameof(regime));
+        return this;
+    }
+
+    /// <summary>Sets the data protection law in force by its identifier, such as <c>gdpr</c> or <c>popia</c>, for example from configuration.</summary>
+    public DataPrivacyOptionsBuilder UseRegime(string regimeId) => UseRegime(PrivacyRegimes.Get(regimeId));
+
+    /// <summary>
     /// Sets the secret key for <see cref="AnonymisationMethod.Hash"/>. Use at least 32 random bytes, keep it out of
     /// source control, and keep it stable: a new key means old hashes no longer match.
     /// </summary>
@@ -68,7 +89,7 @@ public sealed class DataPrivacyOptionsBuilder
         return this;
     }
 
-    /// <summary>Applies controller-wide erasure rules, such as always keeping health data.</summary>
+    /// <summary>Applies organisation-wide erasure rules, such as always keeping health data.</summary>
     public DataPrivacyOptionsBuilder UseErasurePolicy(ErasurePolicy policy)
     {
         Options.ErasurePolicy = policy ?? throw new ArgumentNullException(nameof(policy));

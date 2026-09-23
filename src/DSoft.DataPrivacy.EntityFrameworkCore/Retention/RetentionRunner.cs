@@ -48,7 +48,7 @@ internal sealed class RetentionRunner
 
             if (entity.Erasure == ErasureAction.Retain && !policy.IncludeRetainedRecords)
             {
-                skipped.Add($"{entity.Name}: retained on erasure ({entity.Exemption}); the policy does not include retained records.");
+                skipped.Add($"{entity.Name}: retained on erasure ({entity.RetentionGround}); the policy does not include retained records.");
                 continue;
             }
 

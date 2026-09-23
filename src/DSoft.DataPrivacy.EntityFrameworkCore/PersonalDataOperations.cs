@@ -55,11 +55,14 @@ public sealed class PersonalDataOperations
     /// <summary>The options configured with <c>UseDataPrivacy</c>.</summary>
     public DataPrivacyOptions Options { get; }
 
+    /// <summary>The data protection law in force, when one is configured.</summary>
+    public Regimes.PrivacyRegime? Regime => Options.Regime;
+
     /// <summary>The personal data the model holds.</summary>
     public PersonalDataModel Model { get; }
 
     /// <summary>
-    /// Collects everything held about a data subject, for an access (Article 15) or portability (Article 20)
+    /// Collects everything held about a data subject, for an access or portability
     /// request. Returns <c>null</c> when there is no such subject. Nothing is tracked or changed.
     /// </summary>
     public Task<DataSubjectExport?> ExportAsync<TSubject>(object key, DataSubjectExportOptions? options = null, CancellationToken cancellationToken = default)
@@ -68,10 +71,10 @@ public sealed class PersonalDataOperations
 
     /// <inheritdoc cref="ExportAsync{TSubject}(object, DataSubjectExportOptions?, CancellationToken)"/>
     public Task<DataSubjectExport?> ExportAsync(Type subjectType, object?[] key, DataSubjectExportOptions? options = null, CancellationToken cancellationToken = default)
-        => new DataSubjectExporter(_context, Model).ExportAsync(subjectType, key, options ?? new DataSubjectExportOptions(), cancellationToken);
+        => new DataSubjectExporter(_context, Model, Options.Regime).ExportAsync(subjectType, key, options ?? new DataSubjectExportOptions(), cancellationToken);
 
     /// <summary>
-    /// Erases a data subject (Article 17): deletes the records that belong to them, anonymises records that must
+    /// Erases a data subject: deletes the records that belong to them, anonymises records that must
     /// stay because others depend on them, and keeps records retained under an exemption. The result is a log
     /// with no personal values in it.
     /// </summary>
@@ -90,6 +93,9 @@ public sealed class PersonalDataOperations
     public Task<RetentionRunResult> ApplyRetentionAsync(RetentionPolicy policy, RetentionRunOptions? options = null, CancellationToken cancellationToken = default)
         => new RetentionRunner(_context, Model, Options).RunAsync(policy ?? throw new ArgumentNullException(nameof(policy)), options ?? new RetentionRunOptions(), cancellationToken);
 
+    /// <summary>The data inventory, with special data and citations following the regime in force.</summary>
+    public PersonalDataInventory Inventory() => Model.Inventory(Options.Regime);
+
     /// <summary>
     /// Checks the model for problems that would make an export incomplete or an erasure fail, such as personal
     /// data with no path to a data subject, or anonymisers that are not registered. Run it in a unit test.
@@ -97,6 +103,21 @@ public sealed class PersonalDataOperations
     public IReadOnlyList<PersonalDataIssue> Validate()
     {
         var issues = new List<PersonalDataIssue>();
+
+        var regime = Options.Regime;
+        if (regime == null)
+        {
+            issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Warning, "(model)",
+                "No privacy regime is configured, so retention grounds are not checked against a law. Call UseRegime."));
+        }
+        else
+        {
+            foreach (var rule in Options.ErasurePolicy.RetainedCategories.Where(r => !regime.Recognises(r.Ground)))
+            {
+                issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, "(erasure policy)",
+                    $"Keeps {rule.Categories.Describe()} under {rule.Ground}, which is not a retention ground under {regime.Name}."));
+            }
+        }
 
         if (!Model.DataSubjects.Any())
             issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, "(model)", "No entity is marked as a data subject, so nothing can be exported or erased."));
@@ -115,6 +136,12 @@ public sealed class PersonalDataOperations
             {
                 issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Warning, entity.Name,
                     $"Belongs to a data subject through {subjects.Count} relationships ({string.Join(", ", subjects.Select(fk => string.Join("+", fk.Properties.Select(p => p.Name))))}); erasing either person deletes the record. Declare the others as references with [DataSubjectKey(DataSubjectLinkKind.Reference)] if that is wrong."));
+            }
+
+            if (regime != null && entity.Erasure == ErasureAction.Retain && !regime.Recognises(entity.RetentionGround))
+            {
+                issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, entity.Name,
+                    $"Is retained on erasure under {entity.RetentionGround}, which is not a retention ground under {regime.Name}."));
             }
 
             foreach (var property in entity.Properties)
@@ -138,8 +165,11 @@ public sealed class PersonalDataOperations
                     issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, entity.Name, $"'{property.Name}' uses the anonymiser '{classification.Anonymiser}', which is not registered. Call AddAnonymiser."));
                 }
 
-                if (classification.Erasure == ErasureAction.Retain && classification.RetentionExemption == ErasureExemption.None)
-                    issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, entity.Name, $"'{property.Name}' is retained on erasure but names no Article 17(3) exemption."));
+                if (regime != null && classification.Erasure == ErasureAction.Retain && classification.RetentionGround != RetentionGround.None && !regime.Recognises(classification.RetentionGround))
+                    issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, entity.Name, $"'{property.Name}' is retained under {classification.RetentionGround}, which is not a retention ground under {regime.Name}."));
+
+                if (classification.Erasure == ErasureAction.Retain && classification.RetentionGround == RetentionGround.None)
+                    issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Error, entity.Name, $"'{property.Name}' is retained on erasure but names no retention ground."));
 
                 if (property.Property.IsKey())
                     issues.Add(new PersonalDataIssue(PersonalDataIssueSeverity.Warning, entity.Name, $"'{property.Name}' is personal data used as a key; it cannot be anonymised, only deleted with its record."));

@@ -67,8 +67,8 @@ public sealed class ModelTests : IClassFixture<ModelTests.Database>
         var note = Model.Find(typeof(ClinicalNote))!;
 
         Assert.Equal(ErasureAction.Retain, note.Erasure);
-        Assert.Equal(ErasureExemption.PublicHealth, note.Exemption);
-        Assert.Equal("Health records must be kept for eight years", note.ExemptionReason);
+        Assert.Equal(RetentionGround.HealthOrSocialCare, note.RetentionGround);
+        Assert.Equal("Health records must be kept for eight years", note.RetentionReason);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class ModelTests : IClassFixture<ModelTests.Database>
         var inventory = Model.Inventory();
         var csv = inventory.ToCsv();
 
-        Assert.Contains(inventory.Items, i => i.Entity == "ClinicalNote" && i.Property == "Text" && i.SpecialCategory && i.OnErasure == "Retain (PublicHealth)");
+        Assert.Contains(inventory.Items, i => i.Entity == "ClinicalNote" && i.Property == "Text" && i.SpecialCategory && i.OnErasure == "Retain (HealthOrSocialCare)");
         Assert.Contains(inventory.Items, i => i.Entity == "Customer" && i.Property == "HomeAddress.Line1" && i.Table == "Customers");
         Assert.StartsWith("Entity,Table,Property", csv);
     }

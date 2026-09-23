@@ -50,7 +50,7 @@ public sealed class ErasureTests : System.IDisposable
         // The clinical note is kept whole, under its exemption.
         var note = check.ClinicalNotes.Single(n => n.CustomerId == id);
         Assert.Equal("Allergic to penicillin", note.Text);
-        Assert.Contains(result.Entries, e => e.Entity == "ClinicalNote" && e.Action == ErasureAction.Retain && e.Exemption == ErasureExemption.PublicHealth);
+        Assert.Contains(result.Entries, e => e.Entity == "ClinicalNote" && e.Action == ErasureAction.Retain && e.RetentionGround == RetentionGround.HealthOrSocialCare);
 
         // The ticket only mentions the customer, who still exists, so it is left alone.
         Assert.Equal(id, check.Tickets.Single().RaisedById);
@@ -121,7 +121,7 @@ public sealed class ErasureTests : System.IDisposable
         using (var context = _database.CreateContext())
             result = await context.PersonalData().EraseAsync<Customer>(id, new ErasureOptions { LegalHold = true });
 
-        Assert.All(result.Entries, e => Assert.Equal(ErasureExemption.LegalClaims, e.Exemption));
+        Assert.All(result.Entries, e => Assert.Equal(RetentionGround.LegalClaims, e.RetentionGround));
 
         using var check = _database.CreateContext();
         Assert.Equal("alex@example.com", check.Customers.Single(c => c.Id == id).Email);
@@ -134,7 +134,7 @@ public sealed class ErasureTests : System.IDisposable
         using (var seed = _database.CreateContext())
             id = Seed.LightCustomer(seed).Id;
 
-        var policy = new ErasurePolicy().RetainCategory(PersonalDataCategory.OnlineIdentifier, ErasureExemption.LegalObligation, "Fraud prevention records");
+        var policy = new ErasurePolicy().RetainCategory(PersonalDataCategory.OnlineIdentifier, RetentionGround.LegalObligation, "Fraud prevention records");
 
         using (var context = _database.CreateContext(privacy => privacy.UseErasurePolicy(policy)))
             await context.PersonalData().EraseAsync<Customer>(id);

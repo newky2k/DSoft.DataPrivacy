@@ -7,8 +7,8 @@ namespace DSoft.DataPrivacy;
 /// <see cref="DirectIdentifier"/> | <see cref="Contact"/>, a clinical note is <see cref="Health"/> | <see cref="FreeText"/>.
 /// </summary>
 /// <remarks>
-/// The categories are the ones a controller needs to act on: the Article 9 special categories and Article 10
-/// criminal offence data carry extra conditions, identifiers decide what an erasure must remove, and
+/// The categories are the ones an organisation needs to act on: special data (GDPR Article 9, POPIA section 26)
+/// and criminal offence data carry extra conditions, identifiers decide what an erasure must remove, and
 /// <see cref="FreeText"/> marks values whose content cannot be known in advance and needs review before disclosure.
 /// </remarks>
 [Flags]
@@ -50,7 +50,7 @@ public enum PersonalDataCategory : long
     /// </summary>
     AuditCopy = 1L << 9,
 
-    /// <summary>Data that is, or may be, about a child (Article 8).</summary>
+    /// <summary>Data that is, or may be, about a child (GDPR Article 8, POPIA section 34).</summary>
     Child = 1L << 10,
 
     /// <summary>Data about employment: contract, performance, absence, disciplinary records.</summary>
@@ -59,34 +59,37 @@ public enum PersonalDataCategory : long
     /// <summary>A photograph or video of a person. Only biometric when processed to identify someone (Recital 51).</summary>
     Image = 1L << 12,
 
-    /// <summary>Special category: racial or ethnic origin (Article 9(1)).</summary>
+    /// <summary>Special category: racial or ethnic origin (GDPR Art 9(1), POPIA s26).</summary>
     RacialOrEthnicOrigin = 1L << 20,
 
-    /// <summary>Special category: political opinions (Article 9(1)).</summary>
+    /// <summary>Special category: political opinions (GDPR Art 9(1), POPIA s26).</summary>
     PoliticalOpinion = 1L << 21,
 
-    /// <summary>Special category: religious or philosophical beliefs (Article 9(1)).</summary>
+    /// <summary>Special category: religious or philosophical beliefs (GDPR Art 9(1), POPIA s26).</summary>
     ReligiousOrPhilosophicalBelief = 1L << 22,
 
-    /// <summary>Special category: trade union membership (Article 9(1)).</summary>
+    /// <summary>Special category: trade union membership (GDPR Art 9(1), POPIA s26).</summary>
     TradeUnionMembership = 1L << 23,
 
-    /// <summary>Special category: genetic data (Article 9(1), Article 4(13)).</summary>
+    /// <summary>Special category: genetic data (GDPR Art 9(1); health information under POPIA s26).</summary>
     Genetic = 1L << 24,
 
-    /// <summary>Special category: biometric data processed to uniquely identify a person (Article 9(1), Article 4(14)).</summary>
+    /// <summary>Special category: biometric data processed to uniquely identify a person (GDPR Art 9(1), POPIA s26).</summary>
     Biometric = 1L << 25,
 
-    /// <summary>Special category: data concerning health, physical or mental (Article 9(1), Article 4(15)).</summary>
+    /// <summary>Special category: data concerning health, physical or mental (GDPR Art 9(1), POPIA s26).</summary>
     Health = 1L << 26,
 
-    /// <summary>Special category: data concerning a person's sex life or sexual orientation (Article 9(1)).</summary>
+    /// <summary>Special category: data concerning a person's sex life or sexual orientation (GDPR Art 9(1), POPIA s26).</summary>
     SexLifeOrOrientation = 1L << 27,
 
-    /// <summary>Criminal convictions and offences, or related security measures (Article 10).</summary>
+    /// <summary>Criminal convictions and offences, or related security measures (GDPR Article 10; special personal information under POPIA s26).</summary>
     CriminalOffence = 1L << 32,
 
-    /// <summary>Every Article 9 special category.</summary>
+    /// <summary>
+    /// Every special category common to the GDPR (Article 9) and POPIA (section 26). POPIA also treats
+    /// <see cref="CriminalOffence"/> as special: use <see cref="Regimes.PrivacyRegime.IsSpecial"/> for the law in force.
+    /// </summary>
     SpecialCategory = RacialOrEthnicOrigin | PoliticalOpinion | ReligiousOrPhilosophicalBelief | TradeUnionMembership
         | Genetic | Biometric | Health | SexLifeOrOrientation,
 

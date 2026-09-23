@@ -95,11 +95,11 @@ public sealed class PersonalDataEntity
     /// <summary>What happens to the entity's records on erasure.</summary>
     public ErasureAction Erasure { get; internal set; }
 
-    /// <summary>The Article 17(3) ground, when the records are retained.</summary>
-    public ErasureExemption Exemption { get; internal set; }
+    /// <summary>The retention ground, when the records are retained.</summary>
+    public RetentionGround RetentionGround { get; internal set; }
 
     /// <summary>Why the records are retained.</summary>
-    public string? ExemptionReason { get; internal set; }
+    public string? RetentionReason { get; internal set; }
 
     /// <summary>A human description of the records.</summary>
     public string? Description { get; internal set; }

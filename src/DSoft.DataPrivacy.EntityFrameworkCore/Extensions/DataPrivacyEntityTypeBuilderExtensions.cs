@@ -35,7 +35,7 @@ public static class DataPrivacyEntityTypeBuilderExtensions
     public static EntityTypeBuilder OnErasure(this EntityTypeBuilder builder, ErasureAction action)
     {
         if (action == ErasureAction.Retain)
-            throw new ArgumentException("Use RetainOnErasure, which records the Article 17(3) exemption.", nameof(action));
+            throw new ArgumentException("Use RetainOnErasure, which records the retention ground.", nameof(action));
 
         return builder.HasAnnotation(PrivacyAnnotationNames.Erasure, (int)action);
     }
@@ -45,23 +45,23 @@ public static class DataPrivacyEntityTypeBuilderExtensions
         where TEntity : class
         => (EntityTypeBuilder<TEntity>)OnErasure((EntityTypeBuilder)builder, action);
 
-    /// <summary>Keeps the entity's records when the person is erased, under an Article 17(3) exemption. Same as <see cref="RetainOnErasureAttribute"/>.</summary>
-    public static EntityTypeBuilder RetainOnErasure(this EntityTypeBuilder builder, ErasureExemption exemption, string? reason = null)
+    /// <summary>Keeps the entity's records when the person is erased, under a retention ground. Same as <see cref="RetainOnErasureAttribute"/>.</summary>
+    public static EntityTypeBuilder RetainOnErasure(this EntityTypeBuilder builder, RetentionGround ground, string? reason = null)
     {
-        if (exemption == ErasureExemption.None)
-            throw new ArgumentException("Retaining data after an erasure request needs an Article 17(3) exemption.", nameof(exemption));
+        if (ground == RetentionGround.None)
+            throw new ArgumentException("Retaining data after an erasure request needs a retention ground.", nameof(ground));
 
         builder.HasAnnotation(PrivacyAnnotationNames.Erasure, (int)ErasureAction.Retain);
-        builder.HasAnnotation(PrivacyAnnotationNames.Exemption, (int)exemption);
+        builder.HasAnnotation(PrivacyAnnotationNames.RetentionGround, (int)ground);
         if (reason != null)
-            builder.HasAnnotation(PrivacyAnnotationNames.ExemptionReason, reason);
+            builder.HasAnnotation(PrivacyAnnotationNames.RetentionReason, reason);
         return builder;
     }
 
-    /// <inheritdoc cref="RetainOnErasure(EntityTypeBuilder, ErasureExemption, string?)"/>
-    public static EntityTypeBuilder<TEntity> RetainOnErasure<TEntity>(this EntityTypeBuilder<TEntity> builder, ErasureExemption exemption, string? reason = null)
+    /// <inheritdoc cref="RetainOnErasure(EntityTypeBuilder, RetentionGround, string?)"/>
+    public static EntityTypeBuilder<TEntity> RetainOnErasure<TEntity>(this EntityTypeBuilder<TEntity> builder, RetentionGround ground, string? reason = null)
         where TEntity : class
-        => (EntityTypeBuilder<TEntity>)RetainOnErasure((EntityTypeBuilder)builder, exemption, reason);
+        => (EntityTypeBuilder<TEntity>)RetainOnErasure((EntityTypeBuilder)builder, ground, reason);
 
     /// <summary>Describes what the entity's records hold, for inventories and the record of processing.</summary>
     public static EntityTypeBuilder HasPersonalDataDescription(this EntityTypeBuilder builder, string description)
