@@ -10,8 +10,8 @@
 
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/newky2k/GDPRCore</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/newky2k/GDPRCore</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/newky2k/DSoft.DataPrivacy</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/newky2k/DSoft.DataPrivacy</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright © 2026 DSoft</Copyright>
     <Authors>newky2k</Authors>
