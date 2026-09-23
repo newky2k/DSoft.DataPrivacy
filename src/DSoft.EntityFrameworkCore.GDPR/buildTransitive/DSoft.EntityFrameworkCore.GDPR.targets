@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Registers GdprDesignTimeServices with the Entity Framework tools, which keeps the GDPR
+    annotations out of migration snapshots. Set GdprDesignTimeServices to false to opt out.
+  -->
+  <ItemGroup Condition="'$(GdprDesignTimeServices)' != 'false' And '$(Language)' == 'C#'">
+    <AssemblyAttribute Include="Microsoft.EntityFrameworkCore.Design.DesignTimeServicesReferenceAttribute">
+      <_Parameter1>DSoft.EntityFrameworkCore.GDPR.Design.GdprDesignTimeServices, DSoft.EntityFrameworkCore.GDPR</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

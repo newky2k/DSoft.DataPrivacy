@@ -14,6 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="buildTransitive\*.targets" Pack="true" PackagePath="buildTransitive\" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="DSoft.EntityFrameworkCore.GDPR.Tests" />
   </ItemGroup>
 
