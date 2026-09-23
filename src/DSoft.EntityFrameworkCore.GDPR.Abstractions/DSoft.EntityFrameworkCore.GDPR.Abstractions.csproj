@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DSoft.EntityFrameworkCore.GDPR</RootNamespace>
+    <Description>Attributes, categories and pure decision rules for describing personal data under the UK and EU GDPR. Has no Entity Framework dependency, so it can be referenced from netstandard2.0 domain and entity libraries.</Description>
+  </PropertyGroup>
+
+</Project>
