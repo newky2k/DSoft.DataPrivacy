@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DSoft.EntityFrameworkCore.GDPR.Abstractions/DSoft.EntityFrameworkCore.GDPR.Abstractions.csproj" />
+    <Project Path="src/DSoft.EntityFrameworkCore.GDPR/DSoft.EntityFrameworkCore.GDPR.csproj" />
+    <Project Path="src/DSoft.EntityFrameworkCore.GDPR.Redaction/DSoft.EntityFrameworkCore.GDPR.Redaction.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DSoft.EntityFrameworkCore.GDPR.Tests/DSoft.EntityFrameworkCore.GDPR.Tests.csproj" />
+  </Folder>
+</Solution>
