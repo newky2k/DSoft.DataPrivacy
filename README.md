@@ -119,7 +119,29 @@ string? basis = regime.Cite(LawfulBasis.LegitimateInterests);   // "Art 6(1)(f)"
 bool special = regime.IsSpecial(PersonalDataCategory.CriminalOffence);
 ```
 
-You choose one regime per `DbContext`, which usually means one per deployment. To support another law, derive from `PrivacyRegime`.
+To support another law, derive from `PrivacyRegime`.
+
+#### When several laws apply
+
+More than one law often applies. The GDPR follows EU and UK residents wherever the organisation is based, so a South African business with UK customers answers to both POPIA and the GDPR. Apply them together:
+
+```csharp
+options.UseDataPrivacy(privacy => privacy.UseRegimes(PrivacyRegimes.Gdpr, PrivacyRegimes.Popia));
+// or from configuration: privacy.UseRegime("gdpr,popia")
+```
+
+The laws are combined into one `CombinedPrivacyRegime` that gives the stricter answer every time, so meeting it meets each law:
+
+| Question | Combined answer |
+|---|---|
+| Is a retention ground, lawful basis or special data condition valid? | Only if every law recognises it |
+| Is this special data? | If any law says so |
+| Which rights exist? | Every right any law gives |
+| When is a request due? | The earliest deadline any law sets |
+| Breach notification window | The shortest fixed window |
+| Citation | Each law's provision, such as `GDPR Art 17(3)(c); POPIA s14(1)(a)` |
+
+The regime is set per `DbContext`, which usually means per deployment, and retention and validation run across whole tables. So set it to every law the deployment can face, not just the law for one person.
 
 ### Categories
 

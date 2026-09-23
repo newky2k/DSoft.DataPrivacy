@@ -37,7 +37,7 @@ net8.0; net10.0, EF Core                     net8.0; net10.0, Microsoft.Extensio
 **`DSoft.DataPrivacy`**: everything that must not depend on EF, so domain libraries can classify their own types.
 - `Attributes/`: `[PersonalData]`, `[NotPersonalData]`, `[DataSubject]`, `[DataSubjectKey]`, `[PersonalDataEntity]`, `[RetainOnErasure]`, `[RetentionTrigger]`, `[AnonymisedAt]`
 - `Classification/`: `PersonalDataCategory` (flags) and the neutral enums: `RetentionGround`, `LawfulBasis`, `SpecialDataCondition`, `DataSubjectRequestType`
-- `Regimes/`: `PrivacyRegime`, and `GdprRegime` and `PopiaRegime` exposed through `PrivacyRegimes`. A regime cites the provision behind each neutral value (`null` when the law has none), defines special data, lists rights, calculates request deadlines and gives the breach rule.
+- `Regimes/`: `PrivacyRegime`, and `GdprRegime` and `PopiaRegime` exposed through `PrivacyRegimes`. `CombinedPrivacyRegime` (from `PrivacyRegimes.Combine`, `UseRegimes`, or `UseRegime("gdpr,popia")`) applies several laws at once and always gives the stricter answer: grounds must be recognised by every law, special data is the union, rights are the union, deadlines are the earliest. A regime cites the provision behind each neutral value (`null` when the law has none), defines special data, lists rights, calculates request deadlines and gives the breach rule.
 - `Registry/`: `PersonalDataAttributeReader`, the only place attributes are interpreted; `PersonalDataRegistry` and `PersonalDataCoverage` build on it
 - `Rules/`: pure decisions (`ErasureDecision`, `RetentionPeriod`, `ProcessingRestrictionPolicy`)
 

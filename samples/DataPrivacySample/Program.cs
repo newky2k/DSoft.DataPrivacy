@@ -12,7 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Keep the key in a secret store in a real application, and never change it: old hashes stop matching.
 var hashKey = Convert.FromBase64String(builder.Configuration["DataPrivacy:HashKey"] ?? Convert.ToBase64String(new byte[32]));
 
-// The law in force for this deployment: "gdpr" or "popia". Run with --DataPrivacy:Regime=popia to switch.
+// The law in force for this deployment: "gdpr", "popia", or "gdpr,popia" for both at once.
+// Run with --DataPrivacy:Regime=popia to switch.
 var regime = PrivacyRegimes.Get(builder.Configuration["DataPrivacy:Regime"] ?? "gdpr");
 
 var connection = new SqliteConnection("DataSource=:memory:");
