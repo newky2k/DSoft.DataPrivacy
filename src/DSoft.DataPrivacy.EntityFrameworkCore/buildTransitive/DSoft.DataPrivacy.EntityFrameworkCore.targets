@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Registers DataPrivacyDesignTimeServices with the Entity Framework tools, which keeps the data privacy
+    annotations out of migration snapshots. Set DataPrivacyDesignTimeServices to false to opt out.
+  -->
+  <ItemGroup Condition="'$(DataPrivacyDesignTimeServices)' != 'false'">
+    <AssemblyAttribute Include="Microsoft.EntityFrameworkCore.Design.DesignTimeServicesReferenceAttribute">
+      <_Parameter1>DSoft.DataPrivacy.EntityFrameworkCore.Design.DataPrivacyDesignTimeServices, DSoft.DataPrivacy.EntityFrameworkCore</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

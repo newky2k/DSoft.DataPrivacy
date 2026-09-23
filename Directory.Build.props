@@ -18,7 +18,7 @@
     <Owners>newky2k</Owners>
     <PackageIcon>DSIcon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>gdpr;uk-gdpr;privacy;data-protection;personal-data;dsar;erasure;retention;entity-framework-core;efcore</PackageTags>
+    <PackageTags>privacy;data-privacy;gdpr;uk-gdpr;popia;data-protection;personal-data;dsar;erasure;retention;entity-framework-core;efcore</PackageTags>
   </PropertyGroup>
 
   <!-- The packages. The version is not set here: azure-pipelines-release.yml passes /p:Version. -->
