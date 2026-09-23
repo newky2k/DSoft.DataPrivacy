@@ -74,8 +74,7 @@ jobs:
 
       - name: Push to nuget.org
         shell: bash
-        run: >
-          dotnet nuget push "artifacts/*.nupkg"
-          --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}"
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
+        run: |
+          for package in artifacts/*.nupkg; do
+            dotnet nuget push "$package" --api-key "${{ steps.nuget.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
