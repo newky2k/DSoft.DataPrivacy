@@ -26,16 +26,17 @@ public static class PrivacyRedactionBuilderExtensions
         if (builder == null)
             throw new ArgumentNullException(nameof(builder));
 
-        builder.SetRedactor<ErasingRedactor>(PersonalDataTaxonomy.Erased);
+        // A redactor is looked up by the exact set a value carries, so each classification is mapped on its own.
+        builder.SetRedactor<ErasingRedactor>(PersonalDataTaxonomy.ErasedSets);
 
         if (configureHmac == null)
         {
-            builder.SetRedactor<ErasingRedactor>(PersonalDataTaxonomy.Identifying);
+            builder.SetRedactor<ErasingRedactor>(PersonalDataTaxonomy.IdentifyingSets);
         }
         else
         {
 #pragma warning disable EXTEXP0002 // HMAC redaction is marked experimental by Microsoft.Extensions.Compliance.Redaction.
-            builder.SetHmacRedactor(configureHmac, PersonalDataTaxonomy.Identifying);
+            builder.SetHmacRedactor(configureHmac, PersonalDataTaxonomy.IdentifyingSets);
 #pragma warning restore EXTEXP0002
         }
 
