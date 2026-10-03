@@ -25,8 +25,9 @@ variables:
   value: 'Release'
 - name: netVersion
   value: '10.x'
+# Empty for a stable version; set to a suffix such as '-prerelease' to build a prerelease.
 - name: releaseSuffix
-  value: '-prerelease'
+  value: ''
 
 name: 1.0.$(date:yyMM).$(date:dd)$(rev:r)
 

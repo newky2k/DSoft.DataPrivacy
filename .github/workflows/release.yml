@@ -1,6 +1,8 @@
 # Release: on every push to main, builds Release, runs the tests and pushes the
-# DSoft.*.nupkg packages to nuget.org as a prerelease, then tags the commit and
-# creates a GitHub release with the packages attached.
+# DSoft.*.nupkg packages to nuget.org as 1.0.yyMM.<run number>, then tags the
+# commit and creates a GitHub release with the packages attached.
+# RELEASE_SUFFIX is empty for a stable version; set it to a suffix such as
+# '-prerelease' to publish a prerelease.
 # Signs in to nuget.org with Trusted Publishing (OIDC), so no API key is stored.
 name: Release
 
@@ -19,6 +21,9 @@ permissions:
 concurrency:
   group: release
   cancel-in-progress: false
+
+env:
+  RELEASE_SUFFIX: ''
 
 jobs:
   release:
@@ -40,7 +45,8 @@ jobs:
         run: |
           version="1.0.$(date -u +%y%m).${{ github.run_number }}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Version: $version-prerelease"
+          echo "package=$version$RELEASE_SUFFIX" >> "$GITHUB_OUTPUT"
+          echo "Version: $version$RELEASE_SUFFIX"
 
       - name: Restore
         run: dotnet restore GDPRCore.slnx
@@ -48,7 +54,7 @@ jobs:
       - name: Build
         run: >
           dotnet build GDPRCore.slnx --configuration Release --no-restore
-          /p:Version=${{ steps.version.outputs.version }}-prerelease
+          /p:Version=${{ steps.version.outputs.package }}
           /p:AssemblyVersion=${{ steps.version.outputs.version }}
           /p:FileVersion=${{ steps.version.outputs.version }}
 
@@ -84,9 +90,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "v${{ steps.version.outputs.version }}-prerelease" artifacts/*.nupkg
-          --target "${{ github.sha }}"
-          --title "${{ steps.version.outputs.version }}-prerelease"
-          --generate-notes
-          --prerelease
+        run: |
+          gh release create "v${{ steps.version.outputs.package }}" artifacts/*.nupkg \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.package }}" \
+            --generate-notes \
+            ${RELEASE_SUFFIX:+--prerelease}
