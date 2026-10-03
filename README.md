@@ -303,6 +303,6 @@ dotnet test GDPRCore.slnx
 dotnet build GDPRCore.slnx -c Release   # also produces the packages
 ```
 
-The assemblies are strong-named. Package versions are set by the release pipeline (`azure-pipelines-release.yml`).
+The assemblies are strong-named. Package versions are set by the release pipeline (`.github/workflows/release.yml`) as `1.0.yyMM.<run number>`, with an optional prerelease suffix.
 
 MIT licensed.
