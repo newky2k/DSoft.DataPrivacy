@@ -52,8 +52,24 @@ internal sealed class DataSubjectExporter
         subjectSection.Records.Add(Record(subjectRow, subject.EntityType, DataSubjectLinkKind.Owner, options));
         export.Sections.Add(subjectSection);
 
+        var excluded = new Dictionary<IEntityType, bool>();
+        bool IsExcluded(IEntityType entityType)
+        {
+            if (!excluded.TryGetValue(entityType, out var result))
+                excluded[entityType] = result = Excludes(options, entityType);
+
+            return result;
+        }
+
         foreach (var (entity, links) in _model.LinkedTo(subject.EntityType))
         {
+            // Decided before anything is read, so an excluded entity is never queried.
+            if (IsExcluded(entity.EntityType))
+            {
+                export.ExcludedEntities.Add(entity.Name);
+                continue;
+            }
+
             if (!SubjectQuery.CanQuery(entity.EntityType))
             {
                 if (links.Any(l => l.Dependent == entity.EntityType))
@@ -63,8 +79,18 @@ internal sealed class DataSubjectExporter
 
             foreach (var link in links.Where(l => l.Dependent == entity.EntityType))
             {
+                // Records reached through an excluded entity are part of what it holds.
+                if (link.Path.Any(fk => fk.DeclaringEntityType != subject.EntityType && IsExcluded(fk.DeclaringEntityType)))
+                {
+                    if (!export.ExcludedEntities.Contains(entity.Name))
+                        export.ExcludedEntities.Add(entity.Name);
+                    continue;
+                }
+
                 var principalKey = EntityValues.GetKey(_context, subjectRow, link.Path[link.Path.Count - 1].PrincipalKey.Properties);
                 var rows = await SubjectQuery.LoadAsync(_context, entity.EntityType, link, principalKey, tracking: false, cancellationToken).ConfigureAwait(false);
+                // A derived type excluded on its own is read with its base type; drop its rows here.
+                rows = rows.Where(row => !IsExcluded(EntityValues.ResolveType(_context, row, entity.EntityType))).ToList();
                 if (rows.Count == 0)
                     continue;
 
@@ -84,6 +110,19 @@ internal sealed class DataSubjectExporter
         }
 
         return export;
+    }
+
+    private bool Excludes(DataSubjectExportOptions options, IEntityType entityType)
+    {
+        for (var type = entityType; type != null; type = type.BaseType)
+        {
+            if (options.ExcludedTypes.Any(excluded => excluded.IsAssignableFrom(type.ClrType)))
+                return true;
+            if (options.Exclude != null && _model.Find(type) is { } entity && options.Exclude(entity))
+                return true;
+        }
+
+        return false;
     }
 
     private DataSubjectExportRecord Record(object row, IEntityType queried, DataSubjectLinkKind kind, DataSubjectExportOptions options)

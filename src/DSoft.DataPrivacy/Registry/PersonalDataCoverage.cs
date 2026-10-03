@@ -87,6 +87,29 @@ public static class PersonalDataCoverage
         return result;
     }
 
+    /// <summary>
+    /// Name fragments that suggest a property holds personal data, used by <see cref="LooksPersonal"/>. They are a
+    /// starting point: a name is a hint, not a classification.
+    /// </summary>
+    public static IReadOnlyList<string> PersonalNamePatterns { get; } = new[]
+    {
+        "Email", "Phone", "Mobile", "FirstName", "LastName", "MiddleName", "MaidenName", "FullName", "Surname",
+        "Forename", "UserName", "Address", "PostCode", "ZipCode", "DateOfBirth", "BirthDate", "Passport",
+    };
+
+    /// <summary>
+    /// True when <paramref name="propertyName"/> contains one of <see cref="PersonalNamePatterns"/>, ignoring case
+    /// and underscores, so <c>ContactEmail</c>, <c>post_code</c> and <c>IpAddress</c> all match.
+    /// </summary>
+    public static bool LooksPersonal(string propertyName)
+    {
+        if (propertyName == null)
+            throw new ArgumentNullException(nameof(propertyName));
+
+        var name = propertyName.Replace("_", string.Empty);
+        return PersonalNamePatterns.Any(pattern => name.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
     /// <summary>A readable failure message listing each unclassified property on its own line.</summary>
     public static string Format(IEnumerable<UnclassifiedProperty> unclassified)
     {
