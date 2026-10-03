@@ -273,15 +273,29 @@ ASP.NET Core Identity's own `[PersonalData]` attribute is recognised as `DirectI
 services.AddRedaction(r => r.AddPersonalDataRedactors(hmac =>
 {
     hmac.KeyId = 1;
-    hmac.Key = configuration["Logging:RedactionKey"];
+    hmac.Key = configuration["Logging:RedactionKey"];   // base64, at least 44 characters
 }));
+services.AddLogging(logging => logging.EnableRedaction());   // from Microsoft.Extensions.Telemetry
 
 [LoggerMessage(Level = LogLevel.Information, Message = "Reminder sent to {Email}")]
-static partial void LogReminderSent(ILogger logger,
-    [PersonalDataClassification(PersonalDataCategory.Contact)] string email);
+static partial void LogReminderSent(ILogger logger, [ContactData] string email);
+```
+
+Each category has its own attribute, named after it: `[ContactData]`, `[DirectIdentifierData]`, `[HealthData]`, `[FreeTextData]` and so on. The `[LoggerMessage]` source generator creates the attribute with no arguments, so `[PersonalDataClassification(...)]` cannot be used there. For a value in several categories, derive an attribute of your own. It is redacted as its most sensitive category:
+
+```csharp
+public sealed class CustomerEmailAttribute : PersonalDataClassificationAttribute
+{
+    public CustomerEmailAttribute()
+        : base(PersonalDataCategory.DirectIdentifier | PersonalDataCategory.Contact)
+    {
+    }
+}
 ```
 
 Special category, criminal offence, credential, free text, child and financial values are erased from logs. Other identifiers are HMAC-hashed when a key is configured, so you can still correlate log lines about one person, and erased when no key is configured.
+
+To map redactors yourself, use `PersonalDataTaxonomy.ErasedSets`, `IdentifyingSets` or `SetsFor(categories)`. A redactor is chosen by the exact classification set a value carries, so each category is mapped as a set of its own.
 
 ## Migrations
 

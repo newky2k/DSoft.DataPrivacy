@@ -58,15 +58,40 @@ public static class PersonalDataTaxonomy
     public static PersonalDataCategory MostSensitive(PersonalDataCategory categories)
         => SensitivityOrder.FirstOrDefault(c => categories.HasAny(c));
 
-    /// <summary>A set holding the classification of every category in <paramref name="categories"/>.</summary>
+    /// <summary>
+    /// One set holding the classification of every category in <paramref name="categories"/>. It only matches a
+    /// value that carries all of them: to map a redactor to each category, use <see cref="SetsFor"/>.
+    /// </summary>
     public static DataClassificationSet SetFor(PersonalDataCategory categories)
         => new(categories.Flags().Select(c => new DataClassification(TaxonomyName, c.ToString())));
 
-    /// <summary>The classifications erased from logs.</summary>
+    /// <summary>
+    /// One set per category in <paramref name="categories"/>. A redactor is chosen by the exact set a value carries,
+    /// and a value classified with this taxonomy carries one classification, so redactors are mapped to these.
+    /// </summary>
+    public static DataClassificationSet[] SetsFor(PersonalDataCategory categories)
+        => categories.Flags().Select(c => new DataClassificationSet(new DataClassification(TaxonomyName, c.ToString()))).ToArray();
+
+    /// <summary>
+    /// The classifications erased from logs, as one set. It does not match a value with a single classification:
+    /// map redactors to <see cref="ErasedSets"/>.
+    /// </summary>
     public static DataClassificationSet Erased => SetFor(ErasedCategories);
 
-    /// <summary>The classifications that identify a person without being high risk; hashed when a key is configured.</summary>
-    public static DataClassificationSet Identifying => SetFor(All & ~ErasedCategories);
+    /// <summary>
+    /// The classifications that identify a person without being high risk, as one set. It does not match a value
+    /// with a single classification: map redactors to <see cref="IdentifyingSets"/>.
+    /// </summary>
+    public static DataClassificationSet Identifying => SetFor(IdentifyingCategories);
+
+    /// <summary>Categories that identify a person without being high risk; hashed in logs when a key is configured.</summary>
+    public static PersonalDataCategory IdentifyingCategories => All & ~ErasedCategories;
+
+    /// <summary>One set per classification erased from logs.</summary>
+    public static DataClassificationSet[] ErasedSets => SetsFor(ErasedCategories);
+
+    /// <summary>One set per classification that identifies a person without being high risk; hashed when a key is configured.</summary>
+    public static DataClassificationSet[] IdentifyingSets => SetsFor(IdentifyingCategories);
 
     private static PersonalDataCategory All => SensitivityOrder.Aggregate(PersonalDataCategory.None, (all, c) => all | c);
 }
@@ -75,14 +100,24 @@ public static class PersonalDataTaxonomy
 /// Classifies a logging parameter or property as personal data, so the redaction configured by
 /// <see cref="PrivacyRedactionBuilderExtensions.AddPersonalDataRedactors"/> applies to it.
 /// </summary>
+/// <remarks>
+/// The <c>[LoggerMessage]</c> source generator creates the attribute with no arguments, so it cannot use this
+/// type directly. Use the attribute of a single category, such as <see cref="ContactDataAttribute"/>, or derive
+/// a parameterless attribute of your own for a combination.
+/// </remarks>
 /// <example>
 /// <code>
-/// [LoggerMessage(Level = LogLevel.Information, Message = "Sent reminder to {Email}")]
-/// static partial void LogReminderSent(ILogger logger, [PersonalDataClassification(PersonalDataCategory.Contact)] string email);
+/// public sealed class CustomerEmailAttribute : PersonalDataClassificationAttribute
+/// {
+///     public CustomerEmailAttribute()
+///         : base(PersonalDataCategory.DirectIdentifier | PersonalDataCategory.Contact)
+///     {
+///     }
+/// }
 /// </code>
 /// </example>
 [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.ReturnValue, AllowMultiple = false)]
-public sealed class PersonalDataClassificationAttribute : DataClassificationAttribute
+public class PersonalDataClassificationAttribute : DataClassificationAttribute
 {
     /// <summary>Classifies the value as <paramref name="categories"/>; several categories are treated as the most sensitive.</summary>
     public PersonalDataClassificationAttribute(PersonalDataCategory categories)
