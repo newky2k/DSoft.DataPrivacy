@@ -120,31 +120,64 @@ public sealed class PersonalDataModel
 
     /// <summary>
     /// Finds properties on entities that hold personal data which carry no classification and no decision that
-    /// they are not personal data. Only entities that are data subjects or linked to one are checked.
+    /// they are not personal data. Only entities that are data subjects or linked to one are checked: use
+    /// <see cref="FindUnclassifiedAnywhere"/> to cover entities with no relationship to a person as well.
     /// </summary>
     public IReadOnlyList<PersonalDataGap> FindUnclassified(PersonalDataCoverageOptions? options = null)
     {
         options ??= new PersonalDataCoverageOptions();
+
+        return Entities.Where(e => e.IsDataSubject || e.Links.Count > 0).SelectMany(e => Gaps(e, options)).ToList();
+    }
+
+    /// <summary>
+    /// Finds unclassified properties on every entity that holds personal data, whether or not it is linked to a
+    /// data subject. An entity is checked when it is a data subject, is linked to one, has a classified property,
+    /// or has an undecided property that <paramref name="looksPersonal"/> accepts. Every undecided candidate
+    /// property of a checked entity is returned. Owned types are checked with their owner; keyless types are skipped.
+    /// </summary>
+    /// <remarks>
+    /// The Entity Framework model is read, so classification applied with the fluent API counts. This catches
+    /// records such as inbound mail, event logs and audit snapshots, which hold personal data but have no foreign
+    /// key to the person.
+    /// </remarks>
+    /// <param name="looksPersonal">Whether a property suggests personal data. Defaults to <see cref="LooksPersonal"/>.</param>
+    /// <param name="options">Which properties are candidates.</param>
+    public IReadOnlyList<PersonalDataGap> FindUnclassifiedAnywhere(Func<IReadOnlyProperty, bool>? looksPersonal = null, PersonalDataCoverageOptions? options = null)
+    {
+        looksPersonal ??= LooksPersonal;
+        options ??= new PersonalDataCoverageOptions();
         var gaps = new List<PersonalDataGap>();
 
-        foreach (var entity in Entities.Where(e => e.IsDataSubject || e.Links.Count > 0))
+        foreach (var entity in Entities.Where(e => e.EntityType.FindPrimaryKey() != null))
         {
-            foreach (var (property, path) in AllProperties(entity.EntityType, Array.Empty<INavigation>()))
-            {
-                if (property.IsKey() || property.IsForeignKey() || property.IsShadowProperty() || property.IsConcurrencyToken)
-                    continue;
-                if (!options.IsCandidateType(property.ClrType) || options.IgnoredPropertyNames.Contains(property.Name))
-                    continue;
-                if (property.PropertyInfo != null && options.Ignore?.Invoke(property.PropertyInfo) == true)
-                    continue;
-                if (property.FindAnnotation(PrivacyAnnotationNames.Categories) != null || property.FindAnnotation(PrivacyAnnotationNames.NotPersonalData) != null)
-                    continue;
-
-                gaps.Add(new PersonalDataGap(entity, property, string.Join(".", path.Select(n => n.Name).Append(property.Name))));
-            }
+            var undecided = Gaps(entity, options).ToList();
+            if (entity.IsDataSubject || entity.Links.Count > 0 || entity.Properties.Count > 0 || undecided.Any(g => looksPersonal(g.Property)))
+                gaps.AddRange(undecided);
         }
 
         return gaps;
+    }
+
+    /// <summary>The default test of whether a property suggests personal data: <see cref="PersonalDataCoverage.LooksPersonal"/> on its name.</summary>
+    public static bool LooksPersonal(IReadOnlyProperty property)
+        => PersonalDataCoverage.LooksPersonal((property ?? throw new ArgumentNullException(nameof(property))).Name);
+
+    private static IEnumerable<PersonalDataGap> Gaps(PersonalDataEntity entity, PersonalDataCoverageOptions options)
+    {
+        foreach (var (property, path) in AllProperties(entity.EntityType, Array.Empty<INavigation>()))
+        {
+            if (property.IsKey() || property.IsForeignKey() || property.IsShadowProperty() || property.IsConcurrencyToken)
+                continue;
+            if (!options.IsCandidateType(property.ClrType) || options.IgnoredPropertyNames.Contains(property.Name))
+                continue;
+            if (property.PropertyInfo != null && options.Ignore?.Invoke(property.PropertyInfo) == true)
+                continue;
+            if (property.FindAnnotation(PrivacyAnnotationNames.Categories) != null || property.FindAnnotation(PrivacyAnnotationNames.NotPersonalData) != null)
+                continue;
+
+            yield return new PersonalDataGap(entity, property, string.Join(".", path.Select(n => n.Name).Append(property.Name)));
+        }
     }
 
     internal static IEnumerable<(IProperty Property, IReadOnlyList<INavigation> Path)> AllProperties(IEntityType entityType, IReadOnlyList<INavigation> path)

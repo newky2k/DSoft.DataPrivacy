@@ -160,6 +160,20 @@ An entity marked `[DataSubject]` is a person, or under POPIA possibly a company.
 
 Declare the kind with `[DataSubjectKey(kind)]` on the foreign key or its navigation, or with `IsDataSubjectKey(kind)` in the fluent API. `DataSubjectLinkKind.None` excludes a relationship. Undeclared relationships are inferred: a required relationship that cascades on delete is `Owner`, and anything else is `Reference`. A path is `Owner` only when every step is. If a relationship leads somewhere by accident, for example `CreatedById` pointing at a user who is also a data subject, declare it.
 
+### Leaving records out of an export
+
+Some records are governed separately, such as clinical records behind their own access gate and audit trail. Leave them out of the export and answer for them through that process:
+
+```csharp
+var export = await privacy.ExportAsync<Customer>(customerId, new DataSubjectExportOptions
+{
+    ExcludedTypes = { typeof(ClinicalNote) },            // by entity type, with derived types
+    Exclude = entity => entity.DataClass == "Clinical",  // or by anything on the entity
+});
+```
+
+Exclusion is decided before anything is read, so an excluded entity is never queried, and neither are records reached only through one. `export.ExcludedEntities` names what was left out. The data subject's own record is always exported.
+
 ### How erasure decides
 
 For each record, `ErasureDecision` (a pure rule in `DSoft.DataPrivacy`) checks these in order:
@@ -232,12 +246,13 @@ public void Personal_data_is_fully_described()
     using var db = CreateContext();
     var privacy = db.PersonalData();
 
-    Assert.Empty(privacy.Model.FindUnclassified());                // every candidate column decided
+    Assert.Empty(privacy.Model.FindUnclassifiedAnywhere());        // every candidate column decided
     Assert.DoesNotContain(privacy.Validate(), i => i.Severity == PersonalDataIssueSeverity.Error);
 }
 ```
 
-- `FindUnclassified` lists text, binary and date properties on entities linked to a person that carry neither `[PersonalData]` nor `[NotPersonalData]`.
+- `FindUnclassifiedAnywhere` lists text, binary and date properties that carry neither `[PersonalData]` nor `[NotPersonalData]`, on every entity that holds personal data. That means data subjects, entities linked to one, entities with a classified property, and entities with a property whose name suggests personal data (`Email`, `Phone`, `FirstName`, `Address`, `PostCode`, `IpAddress` and so on). The last group catches inbound mail, event logs and audit snapshots, which have no foreign key to the person. It reads the EF model, so fluent classification counts. Pass your own test to replace the names: `FindUnclassifiedAnywhere(p => p.Name.EndsWith("Email"))`.
+- `FindUnclassified` checks only data subjects and the entities linked to one.
 - `Validate` reports:
   - entities holding personal data with no route to a person
   - records owned by two people

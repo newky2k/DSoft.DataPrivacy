@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DSoft.DataPrivacy.EntityFrameworkCore.Metadata;
 
 namespace DSoft.DataPrivacy.EntityFrameworkCore.Export;
 
@@ -33,6 +34,24 @@ public sealed class DataSubjectExportOptions
 
     /// <summary>A reference for the request, such as its case number, copied into the export.</summary>
     public string? RequestReference { get; set; }
+
+    /// <summary>
+    /// Entity types left out of the export, with the types derived from them. Use it for records governed
+    /// separately, such as those behind their own access gate. See <see cref="Exclude"/>.
+    /// </summary>
+    public ISet<Type> ExcludedTypes { get; } = new HashSet<Type>();
+
+    /// <summary>
+    /// Further entities to leave out, such as <c>entity => entity.DataClass == "Clinical"</c>. An entity is also
+    /// left out when one of its base types is.
+    /// </summary>
+    /// <remarks>
+    /// Exclusion is decided before anything is read: an excluded entity is never queried, and neither are records
+    /// reached only through one. They are named in <see cref="DataSubjectExport.ExcludedEntities"/>. The data
+    /// subject's own record is always exported. When only a derived type is excluded, its rows are read with their
+    /// base type and then dropped.
+    /// </remarks>
+    public Func<PersonalDataEntity, bool>? Exclude { get; set; }
 }
 
 /// <summary>
@@ -61,6 +80,9 @@ public sealed class DataSubjectExport
 
     /// <summary>Things the export could not include, such as entity types it cannot query. Review them by hand.</summary>
     public List<string> Notes { get; init; } = new();
+
+    /// <summary>Entities left out by <see cref="DataSubjectExportOptions.Exclude"/> or <see cref="DataSubjectExportOptions.ExcludedTypes"/>. Answer for them separately.</summary>
+    public List<string> ExcludedEntities { get; init; } = new();
 
     /// <summary>True when a value holds free text, or a record only mentions the person, and should be reviewed for other people's data before release.</summary>
     [JsonInclude]
