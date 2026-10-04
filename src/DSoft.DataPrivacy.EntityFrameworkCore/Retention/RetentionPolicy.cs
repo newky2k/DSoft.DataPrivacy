@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using DSoft.DataPrivacy.EntityFrameworkCore.Erasure;
 using DSoft.DataPrivacy.EntityFrameworkCore.Metadata;
 using DSoft.DataPrivacy.Rules;
+using Microsoft.EntityFrameworkCore;
 
 namespace DSoft.DataPrivacy.EntityFrameworkCore.Retention;
 
@@ -52,6 +54,58 @@ public sealed class RetentionPolicy
     /// duty are only touched by a policy written for them.
     /// </summary>
     public bool IncludeRetainedRecords { get; set; }
+
+    /// <summary>The conditions added with <c>Where</c>, each built for the context a run uses.</summary>
+    internal List<(Type EntityType, Func<DbContext, LambdaExpression> Build)> Conditions { get; } = new();
+
+    /// <summary>
+    /// Adds a condition records of <typeparamref name="TEntity"/> must also meet before the policy applies to
+    /// them, for rules a period cannot express, such as "kept while the record it is about still exists". It is
+    /// part of the query that selects due records, so a record that fails it is never loaded: it is not counted,
+    /// not held and not listed in <see cref="RetentionRunResult.Skipped"/>. Several conditions for one type must
+    /// all be met. Entities with no condition are selected by the period alone.
+    /// </summary>
+    /// <remarks>
+    /// The condition must be translatable by the database provider. A query on another set inside it must use
+    /// the context the policy runs on: build the policy for that context, or use the overload that is given it.
+    /// A condition on a base type applies to its derived types. Put the condition on the base type when a
+    /// derived type shares its data class, because those records are selected through the base type.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var policy = new RetentionPolicy("Trails", RetentionPeriod.FromYears(8))
+    ///     .Where&lt;AccessEntry&gt;(e => !db.People.Any(p => p.Id == e.PersonId &amp;&amp; p.AnonymisedAt == null));
+    /// </code>
+    /// </example>
+    public RetentionPolicy Where<TEntity>(Expression<Func<TEntity, bool>> condition)
+        where TEntity : class
+    {
+        if (condition == null)
+            throw new ArgumentNullException(nameof(condition));
+
+        Conditions.Add((typeof(TEntity), _ => condition));
+        return this;
+    }
+
+    /// <summary>
+    /// As <see cref="Where{TEntity}(Expression{Func{TEntity, bool}})"/>, for a policy that outlives a context:
+    /// the condition is built on each run from the context the run uses.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// policy.Where&lt;AccessEntry&gt;(db => e => !db.Set&lt;Person&gt;().Any(p => p.Id == e.PersonId &amp;&amp; p.AnonymisedAt == null));
+    /// </code>
+    /// </example>
+    public RetentionPolicy Where<TEntity>(Func<DbContext, Expression<Func<TEntity, bool>>> condition)
+        where TEntity : class
+    {
+        if (condition == null)
+            throw new ArgumentNullException(nameof(condition));
+
+        Conditions.Add((typeof(TEntity), context => condition(context)
+            ?? throw new InvalidOperationException($"The retention condition for '{typeof(TEntity).Name}' returned no expression.")));
+        return this;
+    }
 }
 
 /// <summary>Options for one run of a retention policy.</summary>
