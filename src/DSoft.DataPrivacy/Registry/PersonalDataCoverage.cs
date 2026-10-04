@@ -88,27 +88,64 @@ public static class PersonalDataCoverage
     }
 
     /// <summary>
-    /// Name fragments that suggest a property holds personal data, used by <see cref="LooksPersonal"/>. They are a
+    /// Name fragments that suggest a property holds personal data, used by <see cref="LooksPersonal(string)"/>. They are a
     /// starting point: a name is a hint, not a classification.
     /// </summary>
     public static IReadOnlyList<string> PersonalNamePatterns { get; } = new[]
     {
         "Email", "Phone", "Mobile", "FirstName", "LastName", "MiddleName", "MaidenName", "FullName", "Surname",
-        "Forename", "UserName", "Address", "PostCode", "ZipCode", "DateOfBirth", "BirthDate", "Passport",
+        "Forename", "UserName", "Address", "IpAddress", "PostCode", "ZipCode", "DateOfBirth", "BirthDate", "Passport",
     };
 
     /// <summary>
-    /// True when <paramref name="propertyName"/> contains one of <see cref="PersonalNamePatterns"/>, ignoring case
-    /// and underscores, so <c>ContactEmail</c>, <c>post_code</c> and <c>IpAddress</c> all match.
+    /// Words that suggest a text property names a person when the property name starts with one:
+    /// <c>FromName</c>, <c>ToAddress</c>, <c>RecipientEmail</c>. The word must be the whole name or be followed by
+    /// an upper-case letter or an underscore, so <c>Total</c> and <c>Token</c> do not match. On a date or a number
+    /// the same words describe a range, such as <c>FromDate</c> and <c>ToDate</c>, so they only count for text.
     /// </summary>
+    public static IReadOnlyList<string> PersonalTextNamePrefixes { get; } = new[] { "From", "To", "Recipient" };
+
+    /// <summary>
+    /// True when <paramref name="propertyName"/> contains one of <see cref="PersonalNamePatterns"/>, ignoring case
+    /// and underscores, so <c>ContactEmail</c>, <c>post_code</c> and <c>IpAddress</c> all match, or starts with
+    /// one of <see cref="PersonalTextNamePrefixes"/>.
+    /// </summary>
+    /// <remarks>
+    /// With only a name, the prefixes cannot be limited to text, so <c>FromDate</c> matches. Use
+    /// <see cref="LooksPersonal(string, Type)"/> when the property's type is known.
+    /// </remarks>
     public static bool LooksPersonal(string propertyName)
     {
         if (propertyName == null)
             throw new ArgumentNullException(nameof(propertyName));
 
+        return ContainsPersonalPattern(propertyName) || StartsWithPersonalPrefix(propertyName);
+    }
+
+    /// <summary>
+    /// As <see cref="LooksPersonal(string)"/>, but <see cref="PersonalTextNamePrefixes"/> only count when
+    /// <paramref name="propertyType"/> is text, so <c>FromName</c> matches as a string and <c>FromDate</c> does not
+    /// match as a date.
+    /// </summary>
+    public static bool LooksPersonal(string propertyName, Type propertyType)
+    {
+        if (propertyName == null)
+            throw new ArgumentNullException(nameof(propertyName));
+        if (propertyType == null)
+            throw new ArgumentNullException(nameof(propertyType));
+
+        return ContainsPersonalPattern(propertyName) || (propertyType == typeof(string) && StartsWithPersonalPrefix(propertyName));
+    }
+
+    private static bool ContainsPersonalPattern(string propertyName)
+    {
         var name = propertyName.Replace("_", string.Empty);
         return PersonalNamePatterns.Any(pattern => name.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0);
     }
+
+    private static bool StartsWithPersonalPrefix(string propertyName)
+        => PersonalTextNamePrefixes.Any(prefix => propertyName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && (propertyName.Length == prefix.Length || propertyName[prefix.Length] == '_' || char.IsUpper(propertyName[prefix.Length])));
 
     /// <summary>A readable failure message listing each unclassified property on its own line.</summary>
     public static string Format(IEnumerable<UnclassifiedProperty> unclassified)
