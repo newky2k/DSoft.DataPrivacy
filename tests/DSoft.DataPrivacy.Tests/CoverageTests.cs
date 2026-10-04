@@ -81,6 +81,64 @@ public sealed class CoverageTests : IDisposable
     }
 
     [Theory]
+    [InlineData(typeof(Sender), "FromName")]
+    [InlineData(typeof(Addressee), "ToName")]
+    [InlineData(typeof(Delivery), "RecipientName")]
+    [InlineData(typeof(Visit), "IpAddress")]
+    public void Text_properties_named_for_a_sender_recipient_or_address_are_found(Type entity, string property)
+    {
+        var gaps = Model.FindUnclassifiedAnywhere().Where(g => g.Entity.ClrType == entity).Select(g => g.Name).ToList();
+
+        Assert.Equal(new[] { property }, gaps);
+    }
+
+    [Fact]
+    public void Date_ranges_named_from_and_to_are_not_personal()
+    {
+        Assert.DoesNotContain(Model.FindUnclassifiedAnywhere(), g => g.Entity.ClrType == typeof(Schedule));
+    }
+
+    [Theory]
+    [InlineData("FromName", typeof(string), true)]
+    [InlineData("FromAddress", typeof(string), true)]
+    [InlineData("From", typeof(string), true)]
+    [InlineData("from_name", typeof(string), true)]
+    [InlineData("ToName", typeof(string), true)]
+    [InlineData("To", typeof(string), true)]
+    [InlineData("RecipientName", typeof(string), true)]
+    [InlineData("Recipient", typeof(string), true)]
+    [InlineData("IpAddress", typeof(string), true)]
+    [InlineData("FromDate", typeof(DateTime), false)]
+    [InlineData("ToDate", typeof(DateTime), false)]
+    [InlineData("ToDate", typeof(DateTime?), false)]
+    [InlineData("EffectiveFrom", typeof(DateTime), false)]
+    [InlineData("EffectiveTo", typeof(DateTime), false)]
+    [InlineData("RecipientCount", typeof(int), false)]
+    [InlineData("Total", typeof(string), false)]
+    [InlineData("Token", typeof(string), false)]
+    [InlineData("Topic", typeof(string), false)]
+    [InlineData("Frozen", typeof(string), false)]
+    [InlineData("EffectiveFrom", typeof(string), false)]
+    [InlineData("DateOfBirth", typeof(DateTime), true)]   // the other patterns apply to every type
+    [InlineData("Title", typeof(string), false)]
+    public void Sender_and_recipient_names_only_count_on_text(string name, Type type, bool expected)
+    {
+        Assert.Equal(expected, PersonalDataCoverage.LooksPersonal(name, type));
+    }
+
+    [Theory]
+    [InlineData("FromName", true)]
+    [InlineData("ToName", true)]
+    [InlineData("RecipientEmail", true)]
+    [InlineData("FromDate", true)]        // a name alone cannot tell a date range from a sender
+    [InlineData("EffectiveFrom", false)]
+    [InlineData("Total", false)]
+    public void A_name_alone_cannot_apply_the_text_rule(string name, bool expected)
+    {
+        Assert.Equal(expected, PersonalDataCoverage.LooksPersonal(name));
+    }
+
+    [Theory]
     [InlineData("Email", true)]
     [InlineData("ContactEmail", true)]
     [InlineData("phone_number", true)]
@@ -167,6 +225,52 @@ public sealed class CoverageTests : IDisposable
         public string FromEmail { get; set; } = string.Empty;
     }
 
+    public class Sender
+    {
+        public int Id { get; set; }
+
+        public string FromName { get; set; } = string.Empty;
+    }
+
+    public class Addressee
+    {
+        public int Id { get; set; }
+
+        public string ToName { get; set; } = string.Empty;
+    }
+
+    public class Delivery
+    {
+        public int Id { get; set; }
+
+        public string RecipientName { get; set; } = string.Empty;
+
+        public int RecipientCount { get; set; }
+    }
+
+    public class Visit
+    {
+        public int Id { get; set; }
+
+        public string IpAddress { get; set; } = string.Empty;
+    }
+
+    // From and To on dates are a range, not a person.
+    public class Schedule
+    {
+        public int Id { get; set; }
+
+        public DateTime EffectiveFrom { get; set; }
+
+        public DateTime EffectiveTo { get; set; }
+
+        public DateTime FromDate { get; set; }
+
+        public DateTime? ToDate { get; set; }
+
+        public string Title { get; set; } = string.Empty;
+    }
+
     private sealed class MailContext : DbContext
     {
         public MailContext()
@@ -183,6 +287,11 @@ public sealed class CoverageTests : IDisposable
             modelBuilder.Entity<Product>();
             modelBuilder.Entity<Template>().Property(t => t.EmailSubject).IsNotPersonalData("Wording of a template");
             modelBuilder.Entity<MailSummary>().HasNoKey();
+            modelBuilder.Entity<Sender>();
+            modelBuilder.Entity<Addressee>();
+            modelBuilder.Entity<Delivery>();
+            modelBuilder.Entity<Visit>();
+            modelBuilder.Entity<Schedule>();
         }
     }
 }

@@ -251,7 +251,7 @@ public void Personal_data_is_fully_described()
 }
 ```
 
-- `FindUnclassifiedAnywhere` lists text, binary and date properties that carry neither `[PersonalData]` nor `[NotPersonalData]`, on every entity that holds personal data. That means data subjects, entities linked to one, entities with a classified property, and entities with a property whose name suggests personal data (`Email`, `Phone`, `FirstName`, `Address`, `PostCode`, `IpAddress` and so on). The last group catches inbound mail, event logs and audit snapshots, which have no foreign key to the person. It reads the EF model, so fluent classification counts. Pass your own test to replace the names: `FindUnclassifiedAnywhere(p => p.Name.EndsWith("Email"))`.
+- `FindUnclassifiedAnywhere` lists text, binary and date properties that carry neither `[PersonalData]` nor `[NotPersonalData]`, on every entity that holds personal data. That means data subjects, entities linked to one, entities with a classified property, and entities with a property whose name suggests personal data (`Email`, `Phone`, `FirstName`, `Address`, `PostCode`, `IpAddress` and so on). Text properties whose names start with `From`, `To` or `Recipient` count too, such as `FromName` and `ToAddress`; dates such as `FromDate` and `ToDate` don't. The last group catches inbound mail, event logs and audit snapshots, which have no foreign key to the person. It reads the EF model, so fluent classification counts. Pass your own test to replace the names: `FindUnclassifiedAnywhere(p => p.Name.EndsWith("Email"))`.
 - `FindUnclassified` checks only data subjects and the entities linked to one.
 - `Validate` reports:
   - entities holding personal data with no route to a person

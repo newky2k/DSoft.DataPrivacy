@@ -159,9 +159,18 @@ public sealed class PersonalDataModel
         return gaps;
     }
 
-    /// <summary>The default test of whether a property suggests personal data: <see cref="PersonalDataCoverage.LooksPersonal"/> on its name.</summary>
+    /// <summary>
+    /// The default test of whether a property suggests personal data:
+    /// <see cref="PersonalDataCoverage.LooksPersonal(string, Type)"/> on its name and type, so names such as
+    /// <c>FromName</c> and <c>ToAddress</c> count on text and <c>FromDate</c> and <c>ToDate</c> do not count on dates.
+    /// </summary>
     public static bool LooksPersonal(IReadOnlyProperty property)
-        => PersonalDataCoverage.LooksPersonal((property ?? throw new ArgumentNullException(nameof(property))).Name);
+    {
+        if (property == null)
+            throw new ArgumentNullException(nameof(property));
+
+        return PersonalDataCoverage.LooksPersonal(property.Name, property.ClrType);
+    }
 
     private static IEnumerable<PersonalDataGap> Gaps(PersonalDataEntity entity, PersonalDataCoverageOptions options)
     {
