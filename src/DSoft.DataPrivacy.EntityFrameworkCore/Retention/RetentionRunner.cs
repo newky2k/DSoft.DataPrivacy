@@ -38,6 +38,7 @@ internal sealed class RetentionRunner
         var skipped = new List<string>();
         var plan = new ErasurePlan(_context, _model, _options);
         var hasMore = false;
+        var held = 0;
         var fullBatches = new List<(PersonalDataEntity Entity, List<object> Rows)>();
 
         foreach (var entity in _model.Entities.Where(e => string.Equals(e.DataClass, policy.DataClass, StringComparison.Ordinal)))
@@ -65,7 +66,12 @@ internal sealed class RetentionRunner
             }
 
             var predicate = Due(entity, trigger, cutoff, options.DateTimesAreUtc);
-            var rows = await SubjectQuery.LoadAsync(_context, entity.EntityType, predicate, tracking: true, cancellationToken, options.BatchSize).ConfigureAwait(false);
+            var (rows, heldRows) = await LoadDueAsync(entity, predicate, plan, options, cancellationToken).ConfigureAwait(false);
+
+            // A held record stays as it is, whatever the period says. Only its entity and key are reported.
+            foreach (var row in heldRows)
+                skipped.Add($"{entity.Name} {plan.FormatKey(row, plan.Describe(row, entity.EntityType))}: on legal hold; left untouched.");
+            held += heldRows.Count;
 
             foreach (var row in rows)
             {
@@ -106,8 +112,34 @@ internal sealed class RetentionRunner
             Cutoff = cutoff,
             Entries = entries,
             Skipped = skipped,
+            Held = held,
             HasMore = hasMore,
         };
+    }
+
+    /// <summary>
+    /// Loads a batch of due records, without those on legal hold. Held records stay due, so they would fill every
+    /// batch and nothing behind them would ever be reached: the query is widened by the number found until the
+    /// batch is full of records that can be processed, or there are no more.
+    /// </summary>
+    private async Task<(List<object> Rows, List<object> Held)> LoadDueAsync(PersonalDataEntity entity, LambdaExpression predicate, ErasurePlan plan, RetentionRunOptions options, CancellationToken cancellationToken)
+    {
+        var take = options.BatchSize;
+
+        while (true)
+        {
+            var rows = await SubjectQuery.LoadAsync(_context, entity.EntityType, predicate, tracking: true, cancellationToken, take).ConfigureAwait(false);
+            if (options.IsOnLegalHold == null)
+                return (rows, new List<object>());
+
+            var held = rows.Where(row => options.IsOnLegalHold(plan.Describe(row, entity.EntityType), row)).ToList();
+            var released = rows.Except(held).ToList();
+
+            if (released.Count >= options.BatchSize || rows.Count < take)
+                return (released.Take(options.BatchSize).ToList(), held);
+
+            take = options.BatchSize + held.Count;
+        }
     }
 
     private static LambdaExpression Due(PersonalDataEntity entity, IProperty trigger, DateTimeOffset cutoff, bool utc)

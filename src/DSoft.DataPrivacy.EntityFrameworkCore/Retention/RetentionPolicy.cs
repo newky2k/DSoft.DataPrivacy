@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using DSoft.DataPrivacy.EntityFrameworkCore.Erasure;
+using DSoft.DataPrivacy.EntityFrameworkCore.Metadata;
 using DSoft.DataPrivacy.Rules;
 
 namespace DSoft.DataPrivacy.EntityFrameworkCore.Retention;
@@ -72,6 +73,18 @@ public sealed class RetentionRunOptions
 
     /// <summary>Called for each record before it is changed. Not called on a dry run.</summary>
     public Func<ErasureRecord, System.Threading.CancellationToken, System.Threading.Tasks.Task>? OnRecord { get; set; }
+
+    /// <summary>
+    /// Keep individual records because of an actual or expected legal claim, whatever the retention period says.
+    /// Called for each record that is due, with its entity and instance. A held record is neither deleted nor
+    /// anonymised, and is named in <see cref="RetentionRunResult.Skipped"/>, on a dry run too. It takes the same
+    /// test as <see cref="ErasureOptions.IsOnLegalHold"/>, so one can serve both.
+    /// </summary>
+    /// <remarks>
+    /// Held records do not use up the batch: the run reads past them, so the records behind them are still
+    /// processed. They stay due, and are reported again on every run until the hold is released.
+    /// </remarks>
+    public Func<PersonalDataEntity, object, bool>? IsOnLegalHold { get; set; }
 }
 
 /// <summary>What one run of a retention policy did.</summary>
@@ -86,8 +99,14 @@ public sealed class RetentionRunResult
     /// <summary>One entry per record processed.</summary>
     public IReadOnlyList<ErasureLogEntry> Entries { get; init; } = Array.Empty<ErasureLogEntry>();
 
-    /// <summary>Entities in the data class the policy could not run on, and why.</summary>
+    /// <summary>
+    /// Entities in the data class the policy could not run on, and why, and each record left untouched because it
+    /// is on legal hold, named by entity and key.
+    /// </summary>
     public IReadOnlyList<string> Skipped { get; init; } = Array.Empty<string>();
+
+    /// <summary>Records that were due but left untouched because <see cref="RetentionRunOptions.IsOnLegalHold"/> held them.</summary>
+    public int Held { get; init; }
 
     /// <summary>
     /// True when a batch was full and made progress, so calling again will process more. Call until it is false,
