@@ -245,6 +245,260 @@ public sealed class RetentionAndAuditingTests : System.IDisposable
     }
 
     [Fact]
+    public async Task A_condition_keeps_records_that_do_not_meet_it_from_being_deleted()
+    {
+        int current;
+        using (var seed = _database.CreateContext())
+        {
+            current = Seed.FullCustomer(seed).Id; // consent given three years ago
+            var anonymised = Seed.FullCustomer(seed, "Someone Else", "else@example.com");
+            anonymised.AnonymisedAt = Seed.Now;
+            seed.SaveChanges();
+        }
+
+        using (var context = _database.CreateContext())
+        {
+            // A consent is kept while its customer still has a record: a subquery on another set.
+            var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2))
+                .Where<MarketingConsent>(c => !context.Customers.Any(k => k.Id == c.CustomerId && k.AnonymisedAt == null));
+
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now });
+
+            Assert.Equal(1, result.Deleted);
+            Assert.Equal(0, result.Held);
+            Assert.Empty(result.Skipped);
+            Assert.False(result.HasMore);
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Equal(current, check.Consents.Single().CustomerId);
+    }
+
+    [Fact]
+    public async Task A_condition_keeps_records_that_do_not_meet_it_from_being_anonymised()
+    {
+        int gold;
+        using (var seed = _database.CreateContext())
+        {
+            var customer = Seed.LightCustomer(seed); // last active five years ago
+            customer.Tier = "Gold";
+            seed.SaveChanges();
+            gold = customer.Id;
+            Seed.LightCustomer(seed, "Sam Roe", "sam@example.com");
+        }
+
+        var policy = new RetentionPolicy("Customers", RetentionPeriod.FromYears(3), RetentionTrigger.LastActivity, ErasureAction.Anonymise)
+            .Where<Customer>(c => c.Tier != "Gold");
+
+        using (var context = _database.CreateContext())
+        {
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now });
+
+            Assert.Equal(1, result.Anonymised);
+            Assert.Empty(result.Skipped);
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Equal("Alex Doe", check.Customers.Single(c => c.Id == gold).Name);
+        Assert.Null(check.Customers.Single(c => c.Id == gold).AnonymisedAt);
+        Assert.Equal("[erased]", check.Customers.Single(c => c.Id != gold).Name);
+    }
+
+    [Fact]
+    public async Task A_condition_applies_to_a_dry_run()
+    {
+        using (var seed = _database.CreateContext())
+        {
+            Seed.FullCustomer(seed);                                        // an Email consent, three years old
+            Seed.FullCustomer(seed, "Someone Else", "else@example.com");
+            seed.Consents.OrderBy(c => c.Id).Last().Channel = "Post";
+            seed.SaveChanges();
+        }
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2)).Where<MarketingConsent>(c => c.Channel == "Post");
+
+        using (var context = _database.CreateContext())
+        {
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now, DryRun = true });
+
+            Assert.Equal(1, result.Deleted);
+            Assert.Empty(result.Skipped);
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Equal(2, check.Consents.Count());
+    }
+
+    [Fact]
+    public async Task Several_conditions_for_one_entity_must_all_be_met()
+    {
+        using (var seed = _database.CreateContext())
+        {
+            for (var i = 0; i < 3; i++)
+                Seed.FullCustomer(seed, $"Customer {i}", $"c{i}@example.com");
+        }
+
+        int[] ids;
+        using (var context = _database.CreateContext())
+            ids = context.Consents.OrderBy(c => c.Id).Select(c => c.Id).ToArray();
+        int first = ids[0], last = ids[2];
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2))
+            .Where<MarketingConsent>(c => c.Id != first)
+            .Where<MarketingConsent>(c => c.Id != last);
+
+        using (var context = _database.CreateContext())
+            Assert.Equal(1, (await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now })).Deleted);
+
+        using var check = _database.CreateContext();
+        Assert.Equal(new[] { first, last }, check.Consents.OrderBy(c => c.Id).Select(c => c.Id).ToArray());
+    }
+
+    [Fact]
+    public async Task A_condition_for_an_entity_outside_the_data_class_is_reported_and_changes_nothing_else()
+    {
+        using (var seed = _database.CreateContext())
+            Seed.FullCustomer(seed);
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2)).Where<Order>(o => o.Total > 1000);
+
+        using (var context = _database.CreateContext())
+        {
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now });
+
+            Assert.Equal("Order: has a condition, but is not an entity in the Marketing data class.", Assert.Single(result.Skipped));
+            Assert.Equal(1, result.Deleted); // the consent has no condition, so the period alone selects it
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Empty(check.Consents);
+        Assert.Single(check.Orders);
+    }
+
+    [Fact]
+    public async Task A_condition_can_be_built_from_the_context_of_each_run()
+    {
+        using (var seed = _database.CreateContext())
+        {
+            Seed.FullCustomer(seed);
+            var anonymised = Seed.FullCustomer(seed, "Someone Else", "else@example.com");
+            anonymised.AnonymisedAt = Seed.Now;
+            seed.SaveChanges();
+        }
+
+        // Built once, with no context in hand.
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2))
+            .Where<MarketingConsent>(db => c => !db.Set<Customer>().Any(k => k.Id == c.CustomerId && k.AnonymisedAt == null));
+
+        using (var context = _database.CreateContext())
+            Assert.Equal(1, (await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now, DryRun = true })).Deleted);
+
+        using (var context = _database.CreateContext())
+            Assert.Equal(1, (await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now })).Deleted);
+
+        using var check = _database.CreateContext();
+        Assert.Single(check.Consents);
+    }
+
+    [Fact]
+    public async Task A_condition_still_applies_when_the_batch_is_widened_past_legal_holds()
+    {
+        using (var seed = _database.CreateContext())
+        {
+            for (var i = 0; i < 7; i++)
+                Seed.FullCustomer(seed, $"Customer {i}", $"c{i}@example.com");
+        }
+
+        // In key order: three held, two kept by the condition, two free to go. A batch holds two.
+        int[] ids;
+        using (var context = _database.CreateContext())
+            ids = context.Consents.OrderBy(c => c.Id).Select(c => c.Id).ToArray();
+        var held = ids.Take(3).ToArray();
+        int keptA = ids[3], keptB = ids[4];
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2))
+            .Where<MarketingConsent>(c => c.Id != keptA && c.Id != keptB);
+
+        var runs = 0;
+        RetentionRunResult result;
+        do
+        {
+            using var context = _database.CreateContext();
+            result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions
+            {
+                Now = Seed.Now,
+                BatchSize = 2,
+                IsOnLegalHold = (_, row) => held.Contains(((MarketingConsent)row).Id),
+            });
+
+            // Records kept by the condition are never loaded, so they are never reported as held.
+            Assert.All(result.Skipped, s => Assert.EndsWith(": on legal hold; left untouched.", s));
+            Assert.DoesNotContain(result.Skipped, s => s.StartsWith($"MarketingConsent {keptA}:") || s.StartsWith($"MarketingConsent {keptB}:"));
+            runs++;
+        }
+        while (result.HasMore && runs < 10);
+
+        using var check = _database.CreateContext();
+        Assert.Equal(ids.Take(5).ToArray(), check.Consents.OrderBy(c => c.Id).Select(c => c.Id).ToArray());
+        Assert.Equal(3, result.Held);
+    }
+
+    [Fact]
+    public async Task A_condition_on_a_base_type_applies_and_one_on_a_derived_type_selected_through_its_base_is_refused()
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        using var context = new TrailContext(connection);
+        context.Database.EnsureCreated();
+        context.Add(new TrailEntry { Source = "Portal", At = Seed.Now.AddYears(-9) });
+        context.Add(new TrailEntry { Source = "Api", At = Seed.Now.AddYears(-9) });
+        context.Add(new PrintTrailEntry { Source = "Portal", At = Seed.Now.AddYears(-9) });
+        context.SaveChanges();
+
+        var derived = new RetentionPolicy("Trails", RetentionPeriod.FromYears(8)).Where<PrintTrailEntry>(e => e.Source == "Api");
+        var error = await Assert.ThrowsAsync<System.InvalidOperationException>(
+            () => context.PersonalData().ApplyRetentionAsync(derived, new RetentionRunOptions { Now = Seed.Now }));
+        Assert.Contains("Put the condition on 'TrailEntry'", error.Message);
+        Assert.Equal(3, context.Set<TrailEntry>().Count());
+
+        var onBase = new RetentionPolicy("Trails", RetentionPeriod.FromYears(8)).Where<TrailEntry>(e => e.Source == "Api");
+        Assert.Equal(1, (await context.PersonalData().ApplyRetentionAsync(onBase, new RetentionRunOptions { Now = Seed.Now })).Deleted);
+        Assert.Equal(2, context.Set<TrailEntry>().Count(e => e.Source == "Portal"));
+    }
+
+    [PersonalDataEntity(DataClass = "Trails")]
+    public class TrailEntry
+    {
+        public int Id { get; set; }
+
+        [NotPersonalData]
+        public string Source { get; set; } = string.Empty;
+
+        [RetentionTrigger]
+        [NotPersonalData]
+        public System.DateTime At { get; set; }
+    }
+
+    [PersonalDataEntity(DataClass = "Trails")]
+    public class PrintTrailEntry : TrailEntry
+    {
+    }
+
+    private sealed class TrailContext : DbContext
+    {
+        public TrailContext(Microsoft.Data.Sqlite.SqliteConnection connection)
+            : base(new DbContextOptionsBuilder<TrailContext>().UseSqlite(connection).UseDataPrivacy().Options)
+        {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TrailEntry>();
+            modelBuilder.Entity<PrintTrailEntry>();
+        }
+    }
+
+    [Fact]
     public async Task Changes_to_personal_data_are_reported_without_values()
     {
         var observer = new RecordingObserver();

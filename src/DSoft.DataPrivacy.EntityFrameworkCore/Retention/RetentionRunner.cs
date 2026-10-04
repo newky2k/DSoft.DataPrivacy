@@ -41,12 +41,16 @@ internal sealed class RetentionRunner
         var held = 0;
         var fullBatches = new List<(PersonalDataEntity Entity, List<object> Rows)>();
 
-        foreach (var entity in _model.Entities.Where(e => string.Equals(e.DataClass, policy.DataClass, StringComparison.Ordinal)))
-        {
-            // A derived type is processed through its base type's query.
-            if (entity.EntityType.BaseType != null && _model.Find(entity.EntityType.BaseType)?.DataClass == policy.DataClass)
-                continue;
+        // A derived type is processed through its base type's query.
+        var queried = _model.Entities
+            .Where(e => string.Equals(e.DataClass, policy.DataClass, StringComparison.Ordinal))
+            .Where(e => e.EntityType.BaseType == null || _model.Find(e.EntityType.BaseType)?.DataClass != policy.DataClass)
+            .ToList();
 
+        CheckConditions(policy, queried, skipped);
+
+        foreach (var entity in queried)
+        {
             if (entity.Erasure == ErasureAction.Retain && !policy.IncludeRetainedRecords)
             {
                 skipped.Add($"{entity.Name}: retained on erasure ({entity.RetentionGround}); the policy does not include retained records.");
@@ -65,7 +69,8 @@ internal sealed class RetentionRunner
                 continue;
             }
 
-            var predicate = Due(entity, trigger, cutoff, options.DateTimesAreUtc);
+            // Conditions are part of the query, so a record that fails one is never loaded, however the batch is read.
+            var predicate = WithConditions(Due(entity, trigger, cutoff, options.DateTimesAreUtc), policy, entity);
             var (rows, heldRows) = await LoadDueAsync(entity, predicate, plan, options, cancellationToken).ConfigureAwait(false);
 
             // A held record stays as it is, whatever the period says. Only its entity and key are reported.
@@ -140,6 +145,57 @@ internal sealed class RetentionRunner
 
             take = options.BatchSize + held.Count;
         }
+    }
+
+    /// <summary>
+    /// Reports a condition for a type outside the data class, and refuses one for a derived type selected through
+    /// its base type: it could not be applied, and running without it would remove records it was meant to keep.
+    /// </summary>
+    private static void CheckConditions(RetentionPolicy policy, IReadOnlyList<PersonalDataEntity> queried, List<string> skipped)
+    {
+        foreach (var type in policy.Conditions.Select(c => c.EntityType).Distinct())
+        {
+            if (queried.Any(e => type.IsAssignableFrom(e.ClrType)))
+                continue;
+
+            var viaBase = queried.FirstOrDefault(e => e.ClrType.IsAssignableFrom(type));
+            if (viaBase != null)
+            {
+                throw new InvalidOperationException(
+                    $"The retention condition for '{type.Name}' cannot be applied: its records are selected through '{viaBase.Name}', which is in the same data class. Put the condition on '{viaBase.Name}'.");
+            }
+
+            skipped.Add($"{type.Name}: has a condition, but is not an entity in the {policy.DataClass} data class.");
+        }
+    }
+
+    private LambdaExpression WithConditions(LambdaExpression due, RetentionPolicy policy, PersonalDataEntity entity)
+    {
+        var parameter = due.Parameters[0];
+        var body = due.Body;
+
+        foreach (var (type, build) in policy.Conditions.Where(c => c.EntityType.IsAssignableFrom(entity.ClrType)))
+        {
+            var condition = build(_context);
+            Expression row = type == parameter.Type ? parameter : Expression.Convert(parameter, type);
+            body = Expression.AndAlso(body, new ReplaceParameter(condition.Parameters[0], row).Visit(condition.Body));
+        }
+
+        return Expression.Lambda(body, parameter);
+    }
+
+    private sealed class ReplaceParameter : ExpressionVisitor
+    {
+        private readonly ParameterExpression _from;
+        private readonly Expression _to;
+
+        public ReplaceParameter(ParameterExpression from, Expression to)
+        {
+            _from = from;
+            _to = to;
+        }
+
+        protected override Expression VisitParameter(ParameterExpression node) => node == _from ? _to : node;
     }
 
     private static LambdaExpression Due(PersonalDataEntity entity, IProperty trigger, DateTimeOffset cutoff, bool utc)

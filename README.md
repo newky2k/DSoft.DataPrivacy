@@ -216,6 +216,15 @@ while (run.HasMore);
 
 A policy matches entities by data class. Each entity needs a date marked `[RetentionTrigger(trigger)]` for the policy's trigger. Anonymising policies also need a nullable `[AnonymisedAt]` date, so the next batch doesn't select records it has already processed. Entities retained on erasure are skipped unless the policy sets `IncludeRetainedRecords`. The same dependency check as erasure applies.
 
+Some records must meet a condition as well as the period, such as "kept while the person it is about still has a record". Add it to the policy:
+
+```csharp
+var policy = new RetentionPolicy("Trails", RetentionPeriod.Parse("P8Y"))
+    .Where<AccessEntry>(e => !db.People.Any(p => p.Id == e.PersonId && p.AnonymisedAt == null));
+```
+
+The condition is part of the query that selects due records, so it runs in the database and a record that fails it is never loaded. It isn't counted, held or listed in `Skipped`. Entities with no condition are selected by the period alone, and several conditions for one type must all be met. A query on another set must use the context the policy runs on. For a policy that outlives a context, use `Where<AccessEntry>(db => e => ...)`, which is given the context on each run. A condition for a type outside the policy's data class is reported in `Skipped`.
+
 A record under a legal hold must stay, whatever the period says. Pass the same test you give `ErasureOptions.IsOnLegalHold`:
 
 ```csharp
