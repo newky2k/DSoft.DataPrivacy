@@ -99,6 +99,152 @@ public sealed class RetentionAndAuditingTests : System.IDisposable
     }
 
     [Fact]
+    public async Task A_record_on_legal_hold_is_not_deleted_and_is_reported()
+    {
+        int heldCustomer;
+        using (var seed = _database.CreateContext())
+        {
+            heldCustomer = Seed.FullCustomer(seed).Id; // consent given three years ago
+            Seed.FullCustomer(seed, "Someone Else", "else@example.com");
+        }
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2));
+        int heldConsent;
+        using (var context = _database.CreateContext())
+        {
+            heldConsent = context.Consents.Single(c => c.CustomerId == heldCustomer).Id;
+            var options = new RetentionRunOptions
+            {
+                Now = Seed.Now,
+                IsOnLegalHold = (entity, row) => entity.Name == "MarketingConsent" && ((MarketingConsent)row).CustomerId == heldCustomer,
+            };
+
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, options);
+
+            Assert.Equal(1, result.Deleted);
+            Assert.Equal(1, result.Held);
+            Assert.Equal($"MarketingConsent {heldConsent}: on legal hold; left untouched.", Assert.Single(result.Skipped));
+            Assert.DoesNotContain(result.Entries, e => e.Key == heldConsent.ToString());
+            Assert.False(result.HasMore);
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Equal(heldConsent, check.Consents.Single().Id);
+        Assert.Equal("203.0.113.7", check.Consents.Single().IpAddress);
+    }
+
+    [Fact]
+    public async Task A_record_on_legal_hold_is_not_anonymised()
+    {
+        int held;
+        using (var seed = _database.CreateContext())
+        {
+            held = Seed.LightCustomer(seed).Id; // last active five years ago
+            Seed.LightCustomer(seed, "Sam Roe", "sam@example.com");
+        }
+
+        var policy = new RetentionPolicy("Customers", RetentionPeriod.FromYears(3), RetentionTrigger.LastActivity, ErasureAction.Anonymise);
+        using (var context = _database.CreateContext())
+        {
+            var options = new RetentionRunOptions { Now = Seed.Now, IsOnLegalHold = (_, row) => row is Customer customer && customer.Id == held };
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, options);
+
+            Assert.Equal(1, result.Anonymised);
+            Assert.Equal(1, result.Held);
+            Assert.Contains($"Customer {held}: on legal hold; left untouched.", result.Skipped);
+        }
+
+        using var check = _database.CreateContext();
+        var customer = check.Customers.Single(c => c.Id == held);
+        Assert.Equal("Alex Doe", customer.Name);
+        Assert.Null(customer.AnonymisedAt);
+        Assert.Equal("[erased]", check.Customers.Single(c => c.Id != held).Name);
+    }
+
+    [Fact]
+    public async Task A_dry_run_reports_legal_holds_the_same_way()
+    {
+        int heldCustomer;
+        using (var seed = _database.CreateContext())
+        {
+            heldCustomer = Seed.FullCustomer(seed).Id;
+            Seed.FullCustomer(seed, "Someone Else", "else@example.com");
+        }
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2));
+        using (var context = _database.CreateContext())
+        {
+            var options = new RetentionRunOptions
+            {
+                Now = Seed.Now,
+                DryRun = true,
+                IsOnLegalHold = (_, row) => ((MarketingConsent)row).CustomerId == heldCustomer,
+            };
+
+            var result = await context.PersonalData().ApplyRetentionAsync(policy, options);
+
+            Assert.Equal(1, result.Deleted);
+            Assert.Equal(1, result.Held);
+            Assert.EndsWith(": on legal hold; left untouched.", Assert.Single(result.Skipped));
+        }
+
+        using var check = _database.CreateContext();
+        Assert.Equal(2, check.Consents.Count());
+    }
+
+    [Fact]
+    public async Task Records_on_legal_hold_do_not_stop_the_records_behind_them()
+    {
+        using (var seed = _database.CreateContext())
+        {
+            for (var i = 0; i < 6; i++)
+                Seed.FullCustomer(seed, $"Customer {i}", $"c{i}@example.com");
+        }
+
+        // The first four due records are held, which is more than a batch.
+        int[] heldIds;
+        using (var context = _database.CreateContext())
+            heldIds = context.Consents.OrderBy(c => c.Id).Take(4).Select(c => c.Id).ToArray();
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2));
+        var runs = 0;
+        RetentionRunResult result;
+        do
+        {
+            using var context = _database.CreateContext();
+            result = await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions
+            {
+                Now = Seed.Now,
+                BatchSize = 2,
+                IsOnLegalHold = (_, row) => heldIds.Contains(((MarketingConsent)row).Id),
+            });
+            runs++;
+        }
+        while (result.HasMore && runs < 10);
+
+        using var check = _database.CreateContext();
+        Assert.Equal(heldIds, check.Consents.OrderBy(c => c.Id).Select(c => c.Id).ToArray());
+        Assert.Equal(4, result.Held);
+    }
+
+    [Fact]
+    public async Task A_released_hold_lets_the_record_go_on_the_next_run()
+    {
+        using (var seed = _database.CreateContext())
+            Seed.FullCustomer(seed);
+
+        var policy = new RetentionPolicy("Marketing", RetentionPeriod.FromYears(2));
+        using (var context = _database.CreateContext())
+            Assert.Equal(0, (await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now, IsOnLegalHold = (_, _) => true })).Deleted);
+
+        using (var context = _database.CreateContext())
+            Assert.Equal(1, (await context.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions { Now = Seed.Now, IsOnLegalHold = (_, _) => false })).Deleted);
+
+        using var check = _database.CreateContext();
+        Assert.Empty(check.Consents);
+    }
+
+    [Fact]
     public async Task Changes_to_personal_data_are_reported_without_values()
     {
         var observer = new RecordingObserver();

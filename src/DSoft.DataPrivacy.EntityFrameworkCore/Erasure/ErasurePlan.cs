@@ -126,7 +126,7 @@ internal sealed class ErasurePlan
             log.Add(new ErasureLogEntry
             {
                 Entity = planned.Entity.Name,
-                Key = FormatKey(planned),
+                Key = FormatKey(planned.Row, planned.Entity),
                 Action = planned.Outcome.Action,
                 RetentionGround = planned.Outcome.RetentionGround,
                 Citation = planned.Outcome.RetentionGround == RetentionGround.None ? null : _options.Regime?.Cite(planned.Outcome.RetentionGround),
@@ -212,9 +212,10 @@ internal sealed class ErasurePlan
         return current;
     }
 
-    private string FormatKey(Planned planned)
+    /// <summary>A record's key for a log: hashed, or withheld, when the key is itself personal data.</summary>
+    public string FormatKey(object row, PersonalDataEntity entity)
     {
-        var entityType = planned.Entity.EntityType;
+        var entityType = entity.EntityType;
         var key = entityType.FindPrimaryKey();
         if (key == null)
             return string.Empty;
@@ -224,11 +225,11 @@ internal sealed class ErasurePlan
             if (_options.Hasher == null)
                 return "[classified key]";
 
-            var values = EntityValues.GetKey(_context, planned.Row, key.Properties);
+            var values = EntityValues.GetKey(_context, row, key.Properties);
             return "hash:" + _options.Hasher.Hash(string.Join("|", values));
         }
 
-        return EntityValues.FormatKey(EntityValues.KeyMap(_context, planned.Row, entityType));
+        return EntityValues.FormatKey(EntityValues.KeyMap(_context, row, entityType));
     }
 
     private sealed class Planned

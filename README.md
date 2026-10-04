@@ -216,6 +216,17 @@ while (run.HasMore);
 
 A policy matches entities by data class. Each entity needs a date marked `[RetentionTrigger(trigger)]` for the policy's trigger. Anonymising policies also need a nullable `[AnonymisedAt]` date, so the next batch doesn't select records it has already processed. Entities retained on erasure are skipped unless the policy sets `IncludeRetainedRecords`. The same dependency check as erasure applies.
 
+A record under a legal hold must stay, whatever the period says. Pass the same test you give `ErasureOptions.IsOnLegalHold`:
+
+```csharp
+var run = await db.PersonalData().ApplyRetentionAsync(policy, new RetentionRunOptions
+{
+    IsOnLegalHold = (entity, row) => holds.Covers(entity.ClrType, row),
+});
+```
+
+A held record is neither deleted nor anonymised. `run.Held` counts them and `run.Skipped` names each by entity and key, on a dry run too. Held records don't use up the batch: the run reads past them, so the records behind them are still processed.
+
 ### Change log
 
 ```csharp
