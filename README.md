@@ -187,6 +187,8 @@ For each record, `ErasureDecision` (a pure rule in `DSoft.DataPrivacy`) checks t
 
 A planned deletion is changed to an anonymisation when kept records still depend on it through a required or restricting foreign key. This is why a customer with retained orders is anonymised rather than deleted, and why a deletion never cascades into records you meant to keep.
 
+When a record and the records that require it are all deleted, they are removed dependants first, whatever order they were found in. The log lists them in the order they were found.
+
 Retention grounds are neutral, but each law recognises only some of them. `Consent`, `Contract` and `OperationalNeed` are grounds under POPIA s14(1), but not under GDPR Article 17(3). `Validate()` reports any ground the regime in force doesn't recognise.
 
 Values are anonymised by `AnonymisationMethod`:
