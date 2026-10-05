@@ -9,6 +9,7 @@ using DSoft.DataPrivacy.EntityFrameworkCore.Metadata;
 using DSoft.DataPrivacy.EntityFrameworkCore.Querying;
 using DSoft.DataPrivacy.Rules;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace DSoft.DataPrivacy.EntityFrameworkCore.Erasure;
@@ -111,17 +112,9 @@ internal sealed class ErasurePlan
             var anonymised = new List<string>();
             var retained = new List<string>();
 
-            switch (planned.Outcome.Action)
-            {
-                case ErasureAction.Delete:
-                    if (!dryRun)
-                        _context.Remove(planned.Row);
-                    break;
-
-                case ErasureAction.Anonymise:
-                    Anonymise(planned, dryRun, now, anonymised, retained);
-                    break;
-            }
+            // Deletions are applied together at the end, in an order of their own. The log keeps the plan's order.
+            if (planned.Outcome.Action == ErasureAction.Anonymise)
+                Anonymise(planned, dryRun, now, anonymised, retained);
 
             log.Add(new ErasureLogEntry
             {
@@ -136,7 +129,121 @@ internal sealed class ErasurePlan
             });
         }
 
+        if (!dryRun)
+            RemoveDeleted();
+
         return log;
+    }
+
+    /// <summary>
+    /// Removes the records planned for deletion, each one after the planned records that point at it. Removing a
+    /// record while one that requires it is still tracked and not yet deleted makes EF Core report the
+    /// relationship as severed, although both are meant to go.
+    /// </summary>
+    private void RemoveDeleted()
+    {
+        var deleted = _order.Where(p => p.Outcome.Action == ErasureAction.Delete).ToList();
+        if (deleted.Count == 0)
+            return;
+
+        var ordered = DependantsFirst(deleted, out var beforeDependant);
+        var timing = _context.ChangeTracker.CascadeDeleteTiming;
+
+        try
+        {
+            foreach (var planned in ordered)
+            {
+                // In a cycle some record has to go before one that requires it. Its dependants are then looked
+                // at when the changes are saved, by which time every record in the cycle is marked as deleted.
+                _context.ChangeTracker.CascadeDeleteTiming = beforeDependant.Contains(planned) ? CascadeTiming.OnSaveChanges : timing;
+                _context.Remove(planned.Row);
+            }
+        }
+        finally
+        {
+            _context.ChangeTracker.CascadeDeleteTiming = timing;
+        }
+    }
+
+    /// <summary>
+    /// Orders records so that each comes after the records in <paramref name="deleted"/> that point at it by
+    /// foreign key, and otherwise in the order planned. A record that points at itself, or closes a cycle, cannot
+    /// be ordered that way: it is reported in <paramref name="beforeDependant"/>.
+    /// </summary>
+    private List<Planned> DependantsFirst(List<Planned> deleted, out HashSet<Planned> beforeDependant)
+    {
+        var dependants = deleted.ToDictionary(p => p, _ => new List<Planned>());
+        var principals = new Dictionary<IKey, Dictionary<object?[], Planned>>();
+
+        foreach (var planned in deleted)
+        {
+            foreach (var foreignKey in planned.Entity.EntityType.GetForeignKeys())
+            {
+                if (foreignKey.IsOwnership)
+                    continue;
+
+                var values = EntityValues.GetKey(_context, planned.Row, foreignKey.Properties);
+                if (values.Any(v => v == null))
+                    continue;
+
+                var key = foreignKey.PrincipalKey;
+                if (!principals.TryGetValue(key, out var byKey))
+                {
+                    byKey = new Dictionary<object?[], Planned>(KeyValuesComparer.Instance);
+                    foreach (var candidate in deleted.Where(p => key.DeclaringEntityType.IsAssignableFrom(p.Entity.EntityType)))
+                        byKey[EntityValues.GetKey(_context, candidate.Row, key.Properties)] = candidate;
+                    principals.Add(key, byKey);
+                }
+
+                if (byKey.TryGetValue(values, out var principal))
+                    dependants[principal].Add(planned);
+            }
+        }
+
+        // Depth first, without recursion: a record is placed once everything that points at it has been.
+        var ordered = new List<Planned>(deleted.Count);
+        var placed = new Dictionary<Planned, bool>();
+        var path = new List<(Planned Record, int Next)>();
+        beforeDependant = new HashSet<Planned>();
+
+        foreach (var start in deleted)
+        {
+            if (placed.ContainsKey(start))
+                continue;
+
+            placed[start] = false;
+            path.Add((start, 0));
+
+            while (path.Count > 0)
+            {
+                var (record, next) = path[path.Count - 1];
+                var pointingAtIt = dependants[record];
+
+                if (next == pointingAtIt.Count)
+                {
+                    path.RemoveAt(path.Count - 1);
+                    placed[record] = true;
+                    ordered.Add(record);
+                    continue;
+                }
+
+                path[path.Count - 1] = (record, next + 1);
+                var dependant = pointingAtIt[next];
+
+                if (!placed.TryGetValue(dependant, out var done))
+                {
+                    placed[dependant] = false;
+                    path.Add((dependant, 0));
+                }
+                else if (!done)
+                {
+                    // The dependant is still waiting for this record, or is this record: a cycle.
+                    beforeDependant.Add(record);
+                }
+            }
+        }
+
+        return ordered;
     }
 
     private void Anonymise(Planned planned, bool dryRun, DateTimeOffset now, List<string> anonymised, List<string> retained)
@@ -230,6 +337,16 @@ internal sealed class ErasurePlan
         }
 
         return EntityValues.FormatKey(EntityValues.KeyMap(_context, row, entityType));
+    }
+
+    /// <summary>Compares key values one by one, so two reads of the same key match.</summary>
+    private sealed class KeyValuesComparer : IEqualityComparer<object?[]>
+    {
+        public static readonly KeyValuesComparer Instance = new();
+
+        public bool Equals(object?[]? x, object?[]? y) => StructuralComparisons.StructuralEqualityComparer.Equals(x, y);
+
+        public int GetHashCode(object?[] values) => StructuralComparisons.StructuralEqualityComparer.GetHashCode(values);
     }
 
     private sealed class Planned
