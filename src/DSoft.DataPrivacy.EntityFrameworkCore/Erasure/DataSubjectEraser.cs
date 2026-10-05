@@ -74,14 +74,22 @@ internal sealed class DataSubjectEraser
     }
 
     private static ErasureOutcome Decide(PersonalDataEntity entity, object row, ErasureOptions options, ErasurePolicy policy)
-        => ErasureDecision.DecideRecord(
-            new RecordErasureFacts
-            {
-                Categories = entity.Categories,
-                EntityErasure = entity.Erasure,
-                EntityGround = entity.RetentionGround,
-                RetentionReason = entity.RetentionReason,
-                LegalHold = options.LegalHold || options.IsOnLegalHold?.Invoke(entity, row) == true,
-            },
-            policy);
+    {
+        var facts = new RecordErasureFacts
+        {
+            Categories = entity.Categories,
+            EntityErasure = entity.Erasure,
+            EntityGround = entity.RetentionGround,
+            RetentionReason = entity.RetentionReason,
+            LegalHold = options.LegalHold || options.IsOnLegalHold?.Invoke(entity, row) == true,
+        };
+
+        var outcome = ErasureDecision.DecideRecord(facts, policy);
+        if (outcome.Action == ErasureAction.Retain || options.RetainRecord == null)
+            return outcome;
+
+        // Only a record that would go is offered, so the hook can add retention but never take it away.
+        var retention = options.RetainRecord(entity, row);
+        return retention == null ? outcome : ErasureDecision.DecideRecord(facts with { RecordRetention = retention }, policy);
+    }
 }

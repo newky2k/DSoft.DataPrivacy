@@ -181,8 +181,9 @@ For each record, `ErasureDecision` (a pure rule in `DSoft.DataPrivacy`) checks t
 1. A legal hold keeps the record under `RetentionGround.LegalClaims`.
 2. An entity marked `[RetainOnErasure(ground)]` keeps the record, and the ground is logged with its citation.
 3. An `ErasurePolicy` category rule keeps the record, for example "keep anything containing `Health`".
-4. An entity configured with `Erasure = Anonymise` keeps the record but anonymises its classified values.
-5. Otherwise the record is deleted.
+4. `ErasureOptions.RetainRecord` keeps the record on a ground of its own (see [Retaining individual records](#retaining-individual-records)).
+5. An entity configured with `Erasure = Anonymise` keeps the record but anonymises its classified values.
+6. Otherwise the record is deleted.
 
 A planned deletion is changed to an anonymisation when kept records still depend on it through a required or restricting foreign key. This is why a customer with retained orders is anonymised rather than deleted, and why a deletion never cascades into records you meant to keep.
 
@@ -203,6 +204,23 @@ Values are anonymised by `AnonymisationMethod`:
 The erasure log (`ErasureResult.Entries`) names each record's entity, key, action, retention ground, citation and the properties touched. It never holds a value. If a primary key is itself personal data, the key is hashed. Store the log as evidence. Store the subject keys you erased as well, so you can run the erasures again after restoring a backup.
 
 Data held outside the database, such as files, blobs and search indexes, is handled through `ErasureOptions.OnRecord`, which is called with each entity before it changes.
+
+#### Retaining individual records
+
+Some duties attach to a record, not to its type: "a certificate issued under an accredited body is kept for seven years; any other certificate is deleted". Decide those per record:
+
+```csharp
+var result = await db.PersonalData().EraseAsync<Person>(id, new ErasureOptions
+{
+    RetainRecord = (entity, row) => row is Certificate { Accredited: true }
+        ? new RecordRetention(RetentionGround.LegalObligation, "Accredited certificates are kept for seven years")
+        : null,
+});
+```
+
+`RetainRecord` is called for each record that would otherwise be deleted or anonymised. A record it returns a value for is kept whole, exactly like one whose entity is marked `[RetainOnErasure]`: the log shows `Retain` with the ground, its citation and the reason, and the records it depends on are anonymised rather than deleted. Returning `null` leaves the record to its entity's configuration.
+
+It can only add retention. A record already kept, by a legal hold, its entity or an `ErasurePolicy` rule, isn't offered and keeps the ground it has. A dry run calls it too, so the plan shows the same outcomes. The reason is written to the log, so don't put a personal value in it.
 
 ### Retention
 

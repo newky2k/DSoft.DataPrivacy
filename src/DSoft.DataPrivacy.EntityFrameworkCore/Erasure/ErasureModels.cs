@@ -26,6 +26,14 @@ public sealed class ErasureOptions
     /// <summary>Keep individual records because of a legal claim. Called for each record found.</summary>
     public Func<PersonalDataEntity, object, bool>? IsOnLegalHold { get; set; }
 
+    /// <summary>
+    /// Keep individual records under a retention ground of their own. Called for each record that would otherwise
+    /// be deleted or anonymised, on a dry run too. Return the ground and reason to keep the record, or <c>null</c>
+    /// to leave it to its entity's configuration. A record already kept, by a legal hold, its entity or the
+    /// policy, is not offered. The reason goes in the erasure log, so it must not hold a personal value.
+    /// </summary>
+    public Func<PersonalDataEntity, object, RecordRetention?>? RetainRecord { get; set; }
+
     /// <summary>Controller-wide rules for this erasure, replacing the ones configured in <c>UseDataPrivacy</c>.</summary>
     public ErasurePolicy? Policy { get; set; }
 

@@ -20,6 +20,9 @@ public sealed record RecordErasureFacts
 
     /// <summary>True when data about the person must be kept for an actual or expected legal claim.</summary>
     public bool LegalHold { get; init; }
+
+    /// <summary>A duty to keep this one record, when its entity would otherwise be deleted or anonymised.</summary>
+    public RecordRetention? RecordRetention { get; init; }
 }
 
 /// <summary>What is known about a single value on a record that is being anonymised.</summary>
@@ -88,6 +91,12 @@ public sealed record ErasureOutcome
 public sealed record CategoryRetention(PersonalDataCategory Categories, RetentionGround Ground, string Reason);
 
 /// <summary>
+/// A single record kept on erasure, and the ground for keeping it. The reason goes in the erasure log, so it
+/// must not hold a personal value.
+/// </summary>
+public sealed record RecordRetention(RetentionGround Ground, string Reason);
+
+/// <summary>
 /// Controller-wide erasure rules that apply on top of how each entity is configured.
 /// </summary>
 /// <example>
@@ -131,8 +140,8 @@ public static class ErasureDecision
 {
     /// <summary>
     /// Decides what happens to a record, in this order: a legal hold keeps it; an entity configured to be retained
-    /// keeps it; a category the policy retains keeps it; an entity configured to be anonymised is anonymised;
-    /// anything else is deleted.
+    /// keeps it; a category the policy retains keeps it; a record with a retention of its own is kept; an entity
+    /// configured to be anonymised is anonymised; anything else is deleted.
     /// </summary>
     /// <remarks>
     /// A record that is deleted here can still be kept by the engine when other records that are kept depend on it.
@@ -161,6 +170,9 @@ public static class ErasureDecision
             if (facts.Categories.HasAny(rule.Categories))
                 return ErasureOutcome.Retain(rule.Ground, rule.Reason);
         }
+
+        if (facts.RecordRetention != null)
+            return ErasureOutcome.Retain(facts.RecordRetention.Ground, facts.RecordRetention.Reason);
 
         if (facts.EntityErasure == ErasureAction.Anonymise)
             return ErasureOutcome.Anonymise("The record is kept without the person's data.");
