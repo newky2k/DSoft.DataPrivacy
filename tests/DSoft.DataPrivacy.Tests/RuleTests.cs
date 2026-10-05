@@ -42,6 +42,40 @@ public sealed class RuleTests
     }
 
     [Fact]
+    public void A_record_retention_keeps_a_record_that_would_go()
+    {
+        var retention = new RecordRetention(RetentionGround.LegalObligation, "Accredited certificates are kept for seven years");
+
+        foreach (var erasure in new[] { ErasureAction.Delete, ErasureAction.Anonymise })
+        {
+            var outcome = ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = erasure, RecordRetention = retention });
+
+            Assert.Equal(ErasureAction.Retain, outcome.Action);
+            Assert.Equal(RetentionGround.LegalObligation, outcome.RetentionGround);
+            Assert.Equal(retention.Reason, outcome.Reason);
+        }
+    }
+
+    [Fact]
+    public void A_record_retention_does_not_replace_a_ground_the_record_already_has()
+    {
+        var retention = new RecordRetention(RetentionGround.LegalObligation, "Accredited certificates are kept for seven years");
+        var policy = new ErasurePolicy().RetainCategory(PersonalDataCategory.Health, RetentionGround.ArchivingOrResearch, "Clinical records");
+
+        var held = ErasureDecision.DecideRecord(new RecordErasureFacts { LegalHold = true, RecordRetention = retention });
+        var entity = ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = ErasureAction.Retain, EntityGround = RetentionGround.HealthOrSocialCare, RecordRetention = retention });
+        var category = ErasureDecision.DecideRecord(new RecordErasureFacts { Categories = PersonalDataCategory.Health, RecordRetention = retention }, policy);
+
+        Assert.Equal(RetentionGround.LegalClaims, held.RetentionGround);
+        Assert.Equal(RetentionGround.HealthOrSocialCare, entity.RetentionGround);
+        Assert.Equal(RetentionGround.ArchivingOrResearch, category.RetentionGround);
+    }
+
+    [Fact]
+    public void A_record_retention_must_name_its_ground()
+        => Assert.Throws<ArgumentException>(() => ErasureDecision.DecideRecord(new RecordErasureFacts { RecordRetention = new RecordRetention(RetentionGround.None, "No ground") }));
+
+    [Fact]
     public void Anonymise_and_delete_follow_configuration()
     {
         Assert.Equal(ErasureAction.Anonymise, ErasureDecision.DecideRecord(new RecordErasureFacts { EntityErasure = ErasureAction.Anonymise }).Action);
