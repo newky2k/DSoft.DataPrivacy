@@ -31,7 +31,7 @@ The repository is called GDPRCore, but the library is regulation-neutral: the pa
 DSoft.DataPrivacy                            netstandard2.0, no dependencies
     ↑                            ↑
 DSoft.DataPrivacy.EntityFrameworkCore        DSoft.DataPrivacy.Redaction
-net10.0, EF Core 10                         net10.0, Microsoft.Extensions.Compliance
+net10.0 + net11.0, EF Core 10/11            net10.0 + net11.0, Microsoft.Extensions.Compliance
 ```
 
 **`DSoft.DataPrivacy`**: everything that must not depend on EF, so domain libraries can classify their own types.
@@ -73,8 +73,3 @@ GitHub Actions (`.github/workflows/`):
 
 - `ci.yml`: runs on pull requests to `main`. Builds Release and runs the tests. Publishes nothing.
 - `release.yml`: runs on every push to `main` (changes only to Markdown or workflow files are skipped; run it by hand to test a workflow change). Builds Release as `1.0.yyMM.<run number>` plus `RELEASE_SUFFIX` (empty for a stable version; set it to `-prerelease` in the workflow to publish a prerelease), runs the tests, uploads the packages as the `drop` artifact and pushes them to nuget.org with Trusted Publishing (OIDC, `NUGET_USER` secret, `nuget` environment), then tags the commit `v<version>` and creates a GitHub release with the packages attached (marked as a prerelease when the suffix is set).
-
-Azure Pipelines (kept alongside):
-
-- `azure-pipelines-mergetest.yml`: triggered manually for PR validation. Builds Release and runs the tests. Publishes nothing.
-- `azure-pipelines-release.yml`: triggers on `main`. Builds Release, runs the tests, and publishes `**/DSoft.*.nupkg` as the `drop` artifact.

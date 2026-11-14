@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <Description>Maps personal-data categories onto Microsoft.Extensions.Compliance data classifications, so logs redact personal and special category data by the same classification used to describe the database.</Description>
-    <PackageReleaseNotes>v1.0 - Log redaction by personal-data category. Targets .NET 10.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0 - Log redaction by personal-data category. Targets .NET 10 and .NET 11.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
