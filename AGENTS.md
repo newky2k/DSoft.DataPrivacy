@@ -31,7 +31,7 @@ The repository is called GDPRCore, but the library is regulation-neutral: the pa
 DSoft.DataPrivacy                            netstandard2.0, no dependencies
     ↑                            ↑
 DSoft.DataPrivacy.EntityFrameworkCore        DSoft.DataPrivacy.Redaction
-net10.0, EF Core 10                         net10.0, Microsoft.Extensions.Compliance
+net10.0 + net11.0, EF Core 10/11            net10.0 + net11.0, Microsoft.Extensions.Compliance
 ```
 
 **`DSoft.DataPrivacy`**: everything that must not depend on EF, so domain libraries can classify their own types.
