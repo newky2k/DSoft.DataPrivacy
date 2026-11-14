@@ -73,8 +73,3 @@ GitHub Actions (`.github/workflows/`):
 
 - `ci.yml`: runs on pull requests to `main`. Builds Release and runs the tests. Publishes nothing.
 - `release.yml`: runs on every push to `main` (changes only to Markdown or workflow files are skipped; run it by hand to test a workflow change). Builds Release as `1.0.yyMM.<run number>` plus `RELEASE_SUFFIX` (empty for a stable version; set it to `-prerelease` in the workflow to publish a prerelease), runs the tests, uploads the packages as the `drop` artifact and pushes them to nuget.org with Trusted Publishing (OIDC, `NUGET_USER` secret, `nuget` environment), then tags the commit `v<version>` and creates a GitHub release with the packages attached (marked as a prerelease when the suffix is set).
-
-Azure Pipelines (kept alongside):
-
-- `azure-pipelines-mergetest.yml`: triggered manually for PR validation. Builds Release and runs the tests. Publishes nothing.
-- `azure-pipelines-release.yml`: triggers on `main`. Builds Release, runs the tests, and publishes `**/DSoft.*.nupkg` as the `drop` artifact.
